@@ -10,6 +10,9 @@ import {
   LogIn,
   LogOut,
   Wallet,
+  Copy,
+  Check,
+  BookOpen,
 } from "lucide-react";
 import { Dashboard } from "./components/Dashboard";
 import { ApplicationForm } from "./components/ApplicationForm";
@@ -18,6 +21,7 @@ import { ExpenseTracker } from "./components/expenses/ExpenseTracker";
 import { ReportsHub } from "./components/reports/ReportsHub";
 import { SettingsHub } from "./components/settings/SettingsHub";
 import { ServiceTestModal } from "./components/ServiceTestModal";
+import { DeveloperDocsModal } from "./components/reports/DeveloperDocsModal";
 import { LsfcVectorLogo } from "./components/LsfcVectorLogo";
 import { useInstitutionSettings } from "./utils/institutionSettings";
 import { seedInitialDataIfEmpty } from "./utils/sampleData";
@@ -27,6 +31,7 @@ import { useAuth, logout } from "./utils/authStore";
 import { SettingsRoleGate } from "./components/auth/SettingsRoleGate";
 import { LoginModal } from "./components/auth/LoginModal";
 import { AuthGate } from "./components/auth/AuthGate";
+import { LSFC_PROJECT_DOCUMENTATION } from "./utils/projectDocumentation";
 
 export function App() {
   const [activeTab, setActiveTab] = useState<
@@ -35,8 +40,31 @@ export function App() {
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDocsModal, setShowDocsModal] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
   const { settings } = useInstitutionSettings();
   const { currentUser, refresh } = useAuth();
+
+  const handleQuickCopyPrompt = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(LSFC_PROJECT_DOCUMENTATION);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = LSFC_PROJECT_DOCUMENTATION;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 3000);
+    } catch (err) {
+      console.error("Failed to copy prompt:", err);
+    }
+  };
 
   useEffect(() => {
     seedInitialDataIfEmpty();
@@ -77,6 +105,40 @@ export function App() {
 
             {/* Quick Actions & Contact */}
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* One-Click Copy AI Prompt Button */}
+              <div className="flex items-center">
+                <button
+                  id="btn-copy-ai-prompt"
+                  onClick={handleQuickCopyPrompt}
+                  title="এআই এজেন্টের জন্য সম্পূর্ণ প্রজেক্ট পরিচিতি এক ক্লিকে কপি করুন"
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
+                    copiedPrompt
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                      : "bg-emerald-50 hover:bg-emerald-100 text-[#37A448] border-emerald-300"
+                  }`}
+                >
+                  {copiedPrompt ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-white" />
+                      <span>কপি হয়েছে!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-[#37A448]" />
+                      <span>এআই প্রম্পট কপি</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  id="btn-open-project-docs"
+                  onClick={() => setShowDocsModal(true)}
+                  title="প্রজেক্ট ডকুমেন্টেশন ও এআই প্রম্পট ভিউয়ার"
+                  className="p-1.5 ml-1 text-gray-500 hover:text-[#902A8B] hover:bg-purple-50 rounded-lg border border-gray-200 transition cursor-pointer"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
               <button
                 id="btn-open-service-calculator"
                 onClick={() => setShowCalculatorModal(true)}
@@ -302,6 +364,11 @@ export function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Project Documentation & AI Agent Prompt Modal */}
+      {showDocsModal && (
+        <DeveloperDocsModal onClose={() => setShowDocsModal(false)} />
       )}
     </div>
   );

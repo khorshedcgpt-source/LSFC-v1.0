@@ -1,4 +1,4 @@
-import { InvoiceRecord } from "../../utils/invoiceStore";
+import { InvoiceRecord, getInvoiceRealizedCenterFee } from "../../utils/invoiceStore";
 import { CenterReportData, DateRange, ServiceSummaryRow } from "./types";
 
 // UTF-8 BOM to guarantee proper Bengali font rendering in MS Excel
@@ -73,12 +73,8 @@ export function compileCenterReport(invoices: InvoiceRecord[], range: DateRange)
     totalRevenue += inv.paidAmount !== undefined ? inv.paidAmount : inv.total;
 
     // waterfall-ভিত্তিক কালেকশন থেকে এই ইনভয়েসের প্রকৃত collected কেন্দ্র-ফি বের করা
-    // (পুরনো ইনভয়েস, যাদের "collections" নেই, তাদের জন্য fallback: পুরো centerFee ধরা হয়)
     const invoiceCenterFeeTotal = inv.lines.reduce((s, l) => s + (l.centerFee || 0), 0);
-    const invoiceCenterCollected =
-      inv.collections && inv.collections.length > 0
-        ? inv.collections.reduce((s, c) => s + (c.centerPortion || 0), 0)
-        : invoiceCenterFeeTotal;
+    const invoiceCenterCollected = getInvoiceRealizedCenterFee(inv);
     centerTotal += invoiceCenterCollected;
 
     for (const line of inv.lines) {

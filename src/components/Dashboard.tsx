@@ -19,7 +19,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useInvoices, InvoiceRecord } from "../utils/invoiceStore";
+import { useInvoices, InvoiceRecord, getInvoiceRealizedCenterFee } from "../utils/invoiceStore";
 import { useExpenses, getApprovedExpenses } from "../utils/expenseStore";
 import { toBanglaNumber, moneyBn, InvoicePrint } from "./InvoicePrint";
 import { useInstitutionSettings, toInvoiceSettings } from "../utils/institutionSettings";
@@ -47,13 +47,10 @@ export const Dashboard: React.FC<{ onNavigateToForm: () => void }> = ({ onNaviga
     0
   );
   // waterfall-ভিত্তিক centerPortion — শুধু প্রকৃত কালেকশন থেকে আয় গণনা হবে, বকেয়া অংশ নয়
-  // (পুরনো ইনভয়েস, যেগুলোয় "collections" নেই, তাদের জন্য migration fallback: পুরো centerFee ধরা হয়)
-  const totalCenter = activeInvoices.reduce((sum, i) => {
-    if (i.collections && i.collections.length > 0) {
-      return sum + i.collections.reduce((csum, c) => csum + (c.centerPortion || 0), 0);
-    }
-    return sum + i.lines.reduce((lsum, l) => lsum + l.centerFee, 0);
-  }, 0);
+  const totalCenter = activeInvoices.reduce(
+    (sum, i) => sum + getInvoiceRealizedCenterFee(i),
+    0
+  );
 
   // Total operating expenses & Net Profit — শুধু "approved" এন্ট্রি গণনা হবে
   const approvedExpenses = getApprovedExpenses(expenses);

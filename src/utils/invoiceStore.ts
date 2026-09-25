@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { upsertCustomer, generateUUIDv7, DEFAULT_BRANCH_ID } from "./customerStore";
 
 export interface InvoiceCustomer {
@@ -130,6 +130,38 @@ export function allocateCollectionWaterfall(
   }
 
   return { govtPortion, postalPortion, gatewayPortion, centerPortion };
+}
+
+/**
+ * Waterfall নিয়ম অনুযায়ী একটি ইনভয়েস থেকে প্রকৃতপক্ষে সংগৃহীত কেন্দ্র ফি (realized center fee) বের করে:
+ * ১. যদি collections অ্যারে থাকে, তবে প্রতিটি কালেকশনের centerPortion-এর যোগফল নেওয়া হয়।
+ * ২. যদি collections না থাকে (যেমন: পুরনো রেকর্ড), তবে paidAmount-এর ওপর allocateCollectionWaterfall চালানো হয়।
+ * ৩. যদি paidAmount = 0 বা বকেয়া থাকে, তবে সংগৃহীত কেন্দ্র ফি কঠোরভাবে ০ (Zero) হবে।
+ * ৪. কোনো মাফ (waived/discountAmount) থাকলে তা শুধু কেন্দ্র ফি থেকে বাদ যায়।
+ */
+export function getInvoiceRealizedCenterFee(
+  invoice: Pick<InvoiceRecord, "lines" | "collections" | "discountAmount" | "paidAmount" | "dueAmount" | "total" | "status">
+): number {
+  if (invoice.status === "VOIDED") return 0;
+
+  // ১. কালেকশন হিস্ট্রি থাকলে সরাসরি সংগৃহীত centerPortion-এর যোগফল
+  if (invoice.collections && invoice.collections.length > 0) {
+    return invoice.collections.reduce((sum, c) => sum + (c.centerPortion || 0), 0);
+  }
+
+  // ২. কালেকশন না থাকলে প্রকৃত পরিশোধিত টাকার ওপর ওয়াটারফল সিমুলেশন
+  const paid = invoice.paidAmount !== undefined 
+    ? invoice.paidAmount 
+    : (invoice.dueAmount === 0 ? invoice.total : 0);
+
+  if (paid <= 0) return 0;
+
+  // govt -> postal -> gateway -> center ক্রমে বরাদ্দ
+  const allocation = allocateCollectionWaterfall(
+    { lines: invoice.lines, collections: [], discountAmount: invoice.discountAmount },
+    paid
+  );
+  return allocation.centerPortion || 0;
 }
 
 export const STORAGE_KEY_INVOICES = "lsfc.invoices";
