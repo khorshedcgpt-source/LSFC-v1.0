@@ -1,0 +1,8 @@
+{
+  "name": "LSFC-New-App-v1.1",
+  "description": "Imported from GitHub: nuraiyanupur2026-boop/LSFC-New-App",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

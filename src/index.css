@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'AnekBangla';
+  src: url('/fonts/AnekBangla-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AnekBangla';
+  src: url('/fonts/AnekBangla-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kalpurush';
+  src: url('/fonts/Kalpurush.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SolaimanLipi';
+  src: url('/fonts/SolaimanLipi.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --color-primary: #902A8B;
+  --color-secondary: #37A448;
+  --color-third: #EC2324;
+  --color-fourth: #FFF200;
+  --color-white: #FFFFFF;
+}
+
+body {
+  font-family: 'Kalpurush', 'Noto Sans Bengali', 'Anek Bangla', sans-serif;
+  background-color: #f8fafc;
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-anek {
+  font-family: 'AnekBangla', 'Anek Bangla', sans-serif;
+}
+
+.font-kalpurush {
+  font-family: 'Kalpurush', 'Noto Sans Bengali', sans-serif;
+}
+
+.font-solaiman {
+  font-family: 'SolaimanLipi', 'Kalpurush', sans-serif;
+}
+
+/* Print Specific Rules */
+@media print {
+  body {
+    background: #FFFFFF !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
