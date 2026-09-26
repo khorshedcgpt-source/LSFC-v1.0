@@ -1,10 +1,116 @@
 import React, { useState } from "react";
 import { X, BookOpen, ShieldCheck, CheckCircle2, Copy, Check, Sparkles, Code2 } from "lucide-react";
 import { LSFC_PROJECT_DOCUMENTATION } from "../../utils/projectDocumentation";
+import { useInstitutionSettings, DEFAULT_INSTITUTION_SETTINGS, ServiceSettingItem } from "../../utils/institutionSettings";
+import { toBanglaNumber } from "../../utils/bengaliNumbers";
 
 export const DeveloperDocsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"ai_prompt" | "policy">("ai_prompt");
+  const { settings } = useInstitutionSettings();
+
+  const activeServices: ServiceSettingItem[] = [
+    ...(settings.services && settings.services.length > 0
+      ? settings.services
+      : DEFAULT_INSTITUTION_SETTINGS.services),
+  ]
+    .filter((s) => s.isActive)
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+
+  const renderServiceFeeDetails = (svc: ServiceSettingItem) => {
+    if (svc.id === "svc-namjari" || svc.builtInType === "namjari") {
+      return (
+        <div className="text-xs space-y-1 text-gray-700">
+          <p>• <span className="font-semibold">সরকারি কোর্ট ও নোটিশ ফি:</span> ৳{toBanglaNumber(svc.govtFee || 70)}</p>
+          <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳০.৭০</p>
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee)} (২০ পৃষ্ঠা ও ৪ আবেদনকারী পর্যন্ত)</p>
+          <p className="text-[11px] text-gray-500">• অতিরিক্ত পৃষ্ঠা: ৳৩/পৃষ্ঠা, অতিরিক্ত আবেদনকারী: ৳১০/জন</p>
+        </div>
+      );
+    }
+    if (svc.id === "svc-tax") {
+      return (
+        <div className="text-xs space-y-1 text-gray-700">
+          <p>• <span className="font-semibold">সরকারি কর:</span> জমির পরিমাণ, ধরন ও বকেয়া বছর অনুযায়ী অনলাইন হিসাব</p>
+          <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> সরকারি নিয়মানুযায়ী প্রযোজ্য</p>
+          <div className="bg-purple-50/70 p-2 rounded-lg border border-purple-100 text-[11px] space-y-0.5 mt-1.5">
+            <p className="font-semibold text-[#902A8B]">কেন্দ্র সেবা মাশুল ধাপসমূহ:</p>
+            {svc.subServices?.map((sub) => (
+              <p key={sub.id}>• {sub.label}: ৳{toBanglaNumber(sub.fee)}</p>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (svc.id === "svc-khatian") {
+      return (
+        <div className="text-xs space-y-1 text-gray-700">
+          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳{toBanglaNumber(svc.govtFee || 120)} (অনলাইন/কাউন্টার কপি)</p>
+          <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳১.২০</p>
+          <p>• <span className="font-semibold">ডাকযোগে বিতরণ মাশুল:</span> ৳৪০ (শুধুমাত্র ডাকযোগে ডেলিভারি নিলে)</p>
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 100)}</p>
+        </div>
+      );
+    }
+    if (svc.id === "svc-dcr") {
+      return (
+        <div className="text-xs space-y-1 text-gray-700">
+          <p>• <span className="font-semibold">সরকারি ডিসিআর ফি:</span> ৳{toBanglaNumber(svc.govtFee || 1100)}</p>
+          <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳১১.০০</p>
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 100)}</p>
+        </div>
+      );
+    }
+    if (svc.id === "svc-miss-case") {
+      return (
+        <div className="text-xs space-y-1 text-gray-700">
+          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳০ (প্রযোজ্য নয়)</p>
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 100)} (ফ্ল্যাট ফি)</p>
+          <div className="bg-purple-50/70 p-2 rounded-lg border border-purple-100 text-[11px] space-y-0.5 mt-1.5">
+            <p className="font-semibold text-[#902A8B]">সংশোধনের আওতাভুক্ত বিষয়সমূহ:</p>
+            {svc.subServices?.map((sub) => (
+              <p key={sub.id}>• {sub.label}</p>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (svc.id === "svc-mouza") {
+      return (
+        <div className="text-xs space-y-1 text-gray-700">
+          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳{toBanglaNumber(svc.govtFee || 545)}</p>
+          <p>• <span className="font-semibold">সরকারি ডাক মাশুল:</span> ৳১১০ (ডাকযোগে ডেলিভারি হলে)</p>
+          <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳৫.৪৫</p>
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 100)}</p>
+        </div>
+      );
+    }
+    if (svc.id === "svc-citizen-profile") {
+      return (
+        <div className="text-xs space-y-1 text-gray-700">
+          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳০ (সরকারি কোনো ফি নেই)</p>
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 50)}</p>
+          <p className="text-[11px] text-gray-500">• সেবা আওতা: এনআইডি ভেরিফিকেশন, প্রোফাইল তৈরি ও ওটিপি সংযোগ</p>
+        </div>
+      );
+    }
+    return (
+      <div className="text-xs space-y-1 text-gray-700">
+        <p>• <span className="font-semibold">সরকারি ফি:</span> {svc.govtFee > 0 ? `৳${toBanglaNumber(svc.govtFee)}` : "প্রযোজ্য নয় (৳০)"}</p>
+        {svc.gatewayFee > 0 && <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> প্রযোজ্য</p>}
+        {svc.postalFee > 0 && <p>• <span className="font-semibold">ডাক মাশুল:</span> ৳{toBanglaNumber(svc.postalFee)}</p>}
+        <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee)}</p>
+        {svc.subServices && svc.subServices.length > 0 && (
+          <div className="bg-purple-50/70 p-2 rounded-lg border border-purple-100 text-[11px] space-y-0.5 mt-1.5">
+            <p className="font-semibold text-[#902A8B]">সাব-সেবাসমূহ:</p>
+            {svc.subServices.map((sub) => (
+              <p key={sub.id}>• {sub.label} {sub.fee > 0 ? `(৳${toBanglaNumber(sub.fee)})` : ""}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const handleCopy = async () => {
     try {
@@ -132,43 +238,50 @@ export const DeveloperDocsModal: React.FC<{ onClose: () => void }> = ({ onClose 
                   ১. সরকারি লাইসেন্স ও আইনি ভিত্তি
                 </h4>
                 <p>
-                  ভূমিসেবা সহায়তা কেন্দ্র (LSFC) গণপ্রজাতন্ত্রী বাংলাদেশ সরকার অনুমোদিত একটি ফ্রন্ট-ডেস্ক উদ্যোগ।
-                  লাইসেন্স নং ০২, পরিচালনায় খন্দকার কম্পিউটার্স। নাগরিকগণ যাতে সরকারি পোর্টালের সঠিক সেবা পেতে পারেন,
-                  সেজন্য সরকারি ফি, ১% পেমেন্ট গেটওয়ে ফি এবং নির্ধারিত সেবা মাশুল অনুসারে ভেক্টর পিডিএফ রসিদ প্রদান করা বাধ্যতামূলক।
+                  ভূমিসেবা সহায়তা কেন্দ্র (LSFC) গণপ্রজাতন্ত্রী বাংলাদেশ সরকারের ভূমি মন্ত্রণালয় অনুমোদিত একটি ফ্রন্ট-ডেস্ক উদ্যোগ।
+                  অনুমোদনপত্র নং {toBanglaNumber(settings.licenseNo || "০২")}, পরিচালনায়: {settings.partnerOrg || "খন্দকার কম্পিউটার্স"}।
+                  নাগরিকগণ যাতে সরকারি পোর্টালের সঠিক সেবা পেতে পারেন, সেজন্য নির্ধারিত সরকারি ফি, ১% গেটওয়ে ফি এবং সরকার অনুমোদিত কেন্দ্র সেবা মাশুল অনুসারে নিখুঁত ভেক্টর পিডিএফ রসিদ প্রদান করা হয়।
                 </p>
               </section>
 
-              <section className="space-y-2">
-                <h4 className="font-bold text-sm text-gray-900 border-b pb-1">২. অনুমোদিত সরকারি ও কেন্দ্র ফি চার্ট</h4>
+              <section className="space-y-2.5">
+                <div className="flex items-center justify-between border-b pb-1">
+                  <h4 className="font-bold text-sm text-gray-900">
+                    ২. অনুমোদিত সরকারি ও কেন্দ্র ফি চার্ট (সিস্টেমে বিদ্যমান সকল সেবা)
+                  </h4>
+                  <span className="text-[11px] text-[#902A8B] font-semibold">
+                    মোট {toBanglaNumber(activeServices.length)}টি সেবা তালিকাভুক্ত
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500">
+                  * নতুন আবেদন ও ইনভয়েস মেনুর সেবাকার্ডের ক্রমিক নম্বর (১ থেকে {toBanglaNumber(activeServices.length)}) হুবহু নিচে প্রদর্শিত হয়েছে:
+                </p>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="border p-3 rounded-xl bg-gray-50">
-                    <p className="font-bold text-[#902A8B]">ই-নামজারি (Mutation)</p>
-                    <p>• সরকারি কোর্ট ফি ও নোটিশ ফি: ৳৭০</p>
-                    <p>• ১% গেটওয়ে ফি: ৳০.৭০</p>
-                    <p>• কেন্দ্র সেবা ফি: ৳২৭০ (২০ পৃষ্ঠা ও ৪ আবেদনকারী পর্যন্ত)</p>
-                    <p>• অতিরিক্ত পৃষ্ঠা: ৳৩/পৃষ্ঠা, অতিরিক্ত আবেদনকারী: ৳১০/জন</p>
-                  </div>
+                  {activeServices.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="border border-gray-200 p-3.5 rounded-xl bg-gray-50/80 hover:bg-white hover:border-purple-300 transition shadow-2xs flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-start gap-2 mb-2 pb-1.5 border-b border-gray-100">
+                          <span className="inline-flex items-center justify-center w-5 h-5 text-[11px] font-bold font-anek rounded-full bg-[#902A8B] text-white shrink-0 mt-0.5">
+                            {toBanglaNumber(idx + 1)}
+                          </span>
+                          <p className="font-bold text-xs sm:text-sm text-[#902A8B] leading-tight">
+                            {item.serviceName}
+                          </p>
+                        </div>
+                        {renderServiceFeeDetails(item)}
+                      </div>
+                    </div>
+                  ))}
 
-                  <div className="border p-3 rounded-xl bg-gray-50">
-                    <p className="font-bold text-[#902A8B]">খতিয়ান / পর্চা আবেদন</p>
-                    <p>• সরকারি ফি: ৳১২০</p>
-                    <p>• ডাক ফি: ৳৪০ (যদি ডাকযোগে ডেলিভারি হয়)</p>
-                    <p>• কেন্দ্র সেবা ফি: ৳১০০</p>
-                  </div>
-
-                  <div className="border p-3 rounded-xl bg-gray-50">
-                    <p className="font-bold text-[#902A8B]">মৌজা ম্যাপ / নকশা</p>
-                    <p>• সরকারি ফি: ৳৫৪৫</p>
-                    <p>• সরকারি ডাক মাশুল: ৳১১০</p>
-                    <p>• ১% গেটওয়ে ফি: ৳৫.৪৫</p>
-                    <p>• কেন্দ্র সেবা ফি: ৳১০০ (মোট ৳৭৬০.৪৫)</p>
-                  </div>
-
-                  <div className="border p-3 rounded-xl bg-gray-50">
-                    <p className="font-bold text-[#902A8B]">ভূমি উন্নয়ন কর (LD Tax)</p>
-                    <p>• করের পরিমাণ: জমির প্রকার অনুযায়ী পরিবর্তনশীল</p>
-                    <p>• কেন্দ্র দাখিলা ফি: ৳২০ (অনলাইন) বা ৳৪০ (প্রিন্ট কপি সহ)</p>
-                  </div>
+                  {activeServices.length === 0 && (
+                    <p className="col-span-full text-center text-gray-400 py-6 text-xs">
+                      কোনো সেবা সক্রিয় নেই।
+                    </p>
+                  )}
                 </div>
               </section>
 
@@ -178,9 +291,9 @@ export const DeveloperDocsModal: React.FC<{ onClose: () => void }> = ({ onClose 
                   ৩. গ্লোবাল পিডিএফ ও বাংলা ফন্ট স্ট্যান্ডার্ড
                 </h4>
                 <p>
-                  এই প্রজেক্টের সকল পিডিএফ pure vector text-based (কোনো স্ক্রিনশট বা ক্যানভাস ইমেজ নয়)।
-                  টাইটেল ও ব্র্যান্ডিং-এর জন্য <strong>Anek Bangla (Bold 700)</strong> এবং বডি টেক্সট, টেবিল ও তথ্যের জন্য
-                  <strong>Kalpurush (400)</strong> ব্যবহার করা হয়েছে।
+                  এই প্রজেক্টের সকল ইনভয়েস ও রিপোর্ট pure vector SVG text-based (কোনো ক্যানভাস বা রাস্টার ইমেজ নয়)।
+                  যুক্তাক্ষরের নিখুঁত গঠনে HarfBuzz WASM টেক্সট শেপিং ব্যবহার করা হয়।
+                  টাইটেল ও ব্র্যান্ডিং-এর জন্য <strong>Anek Bangla (Bold 700)</strong> এবং বিবরণী ও লেজারের তথ্যের জন্য <strong>Kalpurush (400)</strong> সুনির্দিষ্ট রয়েছে।
                 </p>
               </section>
             </div>
