@@ -469,7 +469,7 @@ export const OrganizationSettings: React.FC = () => {
                 type="text"
                 value={formData.citizenPortalPassword}
                 onChange={(e) => handleInputChange("citizenPortalPassword", e.target.value)}
-                placeholder="যেমন: Ab*12345"
+                placeholder="যেমন: পাসওয়ার্ড লিখুন (ঐচ্ছিক)"
                 className="w-full px-3 py-2 border rounded-lg font-mono text-sm"
               />
               <p className="text-[10px] text-blue-700 mt-1.5">ভূমি মালিকদের জন্য প্রস্তাবিত পাসওয়ার্ড — ইনভয়েসের নিচে ছাপা হবে। খালি রাখলে শুধু মোবাইল নম্বর ছাপা হবে।</p>

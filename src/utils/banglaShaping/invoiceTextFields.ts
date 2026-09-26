@@ -264,7 +264,9 @@ export function buildInvoiceTextFields(
 
     footerAddress: bn(display.showAddress ? settings.address : "ঘোগাদহ, কুড়িগ্রাম", "kalpurush", 6.5),
     footerUser: bn(
-    `ডিফল্ট ইউজার: ${cleanMob} | পাসওয়ার্ড: ${settings.citizenPortalPassword || "Ab*12345"}`,
+      settings.citizenPortalPassword
+        ? `ডিফল্ট ইউজার: ${cleanMob} | পাসওয়ার্ড: ${settings.citizenPortalPassword}`
+        : `ডিফল্ট ইউজার: ${cleanMob} | পোর্টাল: ${settings.website || "land.gov.bd"}`,
       "kalpurush",
       8.0
     ),

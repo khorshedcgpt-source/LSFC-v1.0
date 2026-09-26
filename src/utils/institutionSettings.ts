@@ -117,7 +117,7 @@ export const DEFAULT_INSTITUTION_SETTINGS: InstitutionSettings = {
   alternativePhone: "01912345678",
   contactPerson: "মো: খন্দকার হাবিবুর রহমান (কেন্দ্র পরিচালক)",
 
-  citizenPortalPassword: "Ab*12345",
+  citizenPortalPassword: "",
 
   addressBn: "ইউনিয়ন পরিষদ গেইট, ঘোগাদহ, কুড়িগ্রাম-৫৬০০",
   addressEn: "Union Parishad Gate, Ghogadaha, Kurigram-5600",
@@ -317,6 +317,9 @@ export function readInstitutionSettings(): InstitutionSettings {
       const parsed = JSON.parse(raw);
       if (!parsed.taglineBn || parsed.taglineBn === "স্মার্ট ভূমিসেবা, ঘরে বসেই সমাধান ও নাগরিক সহায়তা") {
         parsed.taglineBn = DEFAULT_INSTITUTION_SETTINGS.taglineBn;
+      }
+      if (parsed.citizenPortalPassword === "Ab*12345") {
+        parsed.citizenPortalPassword = "";
       }
       const currentBuiltInTypes = new Set(
         DEFAULT_INSTITUTION_SETTINGS.services.map((d) => d.builtInType).filter(Boolean)

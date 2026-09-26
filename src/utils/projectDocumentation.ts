@@ -21,7 +21,7 @@ export const LSFC_PROJECT_DOCUMENTATION = `# LSFC Management System — প্�
 
 ## ৩. লোকাল স্টোরেজ স্কিমা (LocalStorage Keys)
 1. \`lsfc.institutionSettings\`: কেন্দ্রের নাম, লাইসেন্স, জিও-কোড ও সেবার ফি তালিকা।
-2. \`lsfc.customers\`: গ্রাহক তালিকা (id, name, mobile, nid, address, uniqueId)।
+2. \`lsfc.customers\`: ভূমি মালিকদের তালিকা (id, name, mobile, nid, address, uniqueId)।
 3. \`lsfc.invoices\`: ইনভয়েসসমূহ (invoiceNumber, customerId, services, payment breakdown, status)।
 4. \`lsfc.expenses\`: কেন্দ্রের দৈনন্দিন খরচ (category, amount, status: pending/approved/rejected)।
 5. \`lsfc.users\`: সিস্টেম ব্যবহারকারী ও রোল (admin, branch_incharge, operator)।
@@ -29,10 +29,10 @@ export const LSFC_PROJECT_DOCUMENTATION = `# LSFC Management System — প্�
 
 ## ৪. প্রধান মডিউল ও ফিচারসমূহ
 - **ড্যাশবোর্ড (Dashboard):** রিয়েলটাইম রাজস্ব, মাসিক আয়-ব্যয় চার্ট, নিট লাভ ও সর্বমোট বকেয়ার হিসাব।
-- **নতুন আবেদন ও ইনভয়েস (Application Form):** গ্রাহকের তথ্য সংগ্রহ, সেবা বাছাই, স্বয়ংক্রিয় সরকারি ও কেন্দ্র ফি হিসাব এবং নিখুঁত বাংলা ভেক্টর ইনভয়েস জেনারেশন।
-- **গ্রাহক লেজার (Customer Ledger):** প্রতিটি ভূমি মালিকের পৃথক হিসাব খতিয়ান, অতীত ইনভয়েস ও ওয়াটারফল বকেয়া আদায় ব্যবস্থা।
+- **নতুন আবেদন ও ইনভয়েস (Application Form):** ভূমি মালিকের তথ্য সংগ্রহ, সেবা বাছাই, স্বয়ংক্রিয় সরকারি ও কেন্দ্র ফি হিসাব এবং নিখুঁত বাংলা ভেক্টর ইনভয়েস জেনারেশন।
+- **ভূমি মালিক লেজার (Landowner Ledger):** প্রতিটি ভূমি মালিকের পৃথক হিসাব খতিয়ান, অতীত ইনভয়েস ও ওয়াটারফল বকেয়া আদায় ব্যবস্থা।
 - **দৈনন্দিন খরচ (Expense Tracker):** কেন্দ্রের অফিস ও পরিচালনা খরচ এন্ট্রি এবং অনুমোদন ওয়ার্কফ্লো।
-- **রিপোর্ট ও স্টেটমেন্ট (Reports Hub):** তারিখভিত্তিক কেন্দ্রের সারসংক্ষেপ রিপোর্ট, গ্রাহক অ্যাকাউন্ট স্টেটমেন্ট ও CSV এক্সপোর্ট।
+- **রিপোর্ট ও স্টেটমেন্ট (Reports Hub):** তারিখভিত্তিক কেন্দ্রের সারসংক্ষেপ রিপোর্ট, ভূমি মালিক অ্যাকাউন্ট স্টেটমেন্ট ও CSV এক্সপোর্ট।
 - **সেটিংস ও ব্যাকআপ (Settings Hub):** জিও-কোড, কাস্টম সার্ভিস ফি, ইউজার রোল ও JSON ব্যাকআপ/রিস্টোর সুবিধা।
 
 ## ৫. বিশেষ বিজনেস লজিক

@@ -1181,7 +1181,8 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({
           <div className="mt-8 pt-2 border-t border-purple-100 print:border-black flex justify-between items-center text-[10px] text-gray-500 print:text-black">
             <span>{display.showAddress ? settings.address : "ঘোগাদহ, কুড়িগ্রাম"}</span>
             <div className="px-2.5 py-0.5 bg-[#F4FAF5] border border-[#37A448] rounded text-[#37A448] font-bold text-xs tracking-wide">
-                  ডিফল্ট ইউজার: {cleanPhone(invoice.customer.mobile)} | পাসওয়ার্ড: {settings.citizenPortalPassword || "Ab*12345"}
+              ডিফল্ট ইউজার: {cleanPhone(invoice.customer.mobile)}
+              {settings.citizenPortalPassword ? ` | পাসওয়ার্ড: ${settings.citizenPortalPassword}` : ` | পোর্টাল: ${settings.website || "land.gov.bd"}`}
             </div>
             <span>{settings.website || "land.gov.bd"}</span>
           </div>
