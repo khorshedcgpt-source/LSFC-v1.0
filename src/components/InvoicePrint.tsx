@@ -840,9 +840,24 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({
       const blob = await pdf(
         <VectorPdfDocument invoice={invoice} settings={settings} shapedFields={shapedFields} />
       ).toBlob();
-      const url = URL.createObjectURL(blob);
 
-      // Open in new tab — user can then use Ctrl+P from the PDF viewer
+      // Electron desktop: save to Downloads folder & open in system PDF viewer
+      const electronApi = (window as any).electronApp;
+      if (electronApi?.isElectron) {
+        // Use the browser download mechanism (Electron intercepts and saves to Downloads)
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Invoice-${invoice.invoiceNo}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        return;
+      }
+
+      // Web: open in new tab for immediate print
+      const url = URL.createObjectURL(blob);
       const win = window.open(url, "_blank");
       if (!win) {
         // Popup blocked — fall back to download

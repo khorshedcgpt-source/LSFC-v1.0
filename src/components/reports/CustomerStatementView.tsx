@@ -87,11 +87,24 @@ export const CustomerStatementView: React.FC = () => {
           shapedFields={shapedFields}
         />
       ).toBlob();
-      const url = URL.createObjectURL(blob);
+      // Electron desktop: save to Downloads & open system viewer
+      const electronApi = (window as any).electronApp;
+      if (electronApi?.isElectron) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Statement-${activeCustomer.mobile}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        return;
+      }
 
+      // Web: new tab
+      const url = URL.createObjectURL(blob);
       const win = window.open(url, "_blank");
       if (!win) {
-        // Popup blocked — fall back to download
         const a = document.createElement("a");
         a.href = url;
         a.download = `Statement-${activeCustomer.mobile}.pdf`;
