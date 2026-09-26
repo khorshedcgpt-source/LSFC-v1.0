@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { DEFAULT_BRANCH_ID } from "./customerStore";
+import { localUserSchema } from "./schemas";
 
 // ফেজ-১ (MVP): সম্পূর্ণ লোকাল অথ, Firebase ছাড়াই। role/scope-এর শেপটা ইচ্ছাকৃতভাবে
 // Firebase Auth Custom Claims-এর মতো রাখা হয়েছে, যাতে v1.0-এ ব্যাকএন্ড বদলালে
@@ -20,7 +21,7 @@ export interface LocalUser {
   branchId: string;
   passwordHash: string;
   passwordSalt: string;
-  hashAlgorithm?: "pbkdf2-sha256-100k" | "legacy-sha256";
+  hashAlgorithm?: "pbkdf2-sha256-600k" | "pbkdf2-sha256-100k" | "legacy-sha256";
   isActive: boolean;
   createdAt: string;
 }
@@ -29,9 +30,31 @@ export const STORAGE_KEY_USERS = "lsfc.users";
 export const STORAGE_KEY_SESSION = "lsfc.session";
 export const AUTH_UPDATED_EVENT = "lsfc:auth-updated";
 
-// --- আন্তর্জাতিক মানদণ্ডের পাসওয়ার্ড হ্যাশিং (WebCrypto PBKDF2, 100,000 Iterations) ---
-export const PBKDF2_ITERATIONS = 100_000;
+// --- আন্তর্জাতিক মানদণ্ডের পাসওয়ার্ড হ্যাশিং (WebCrypto PBKDF2, 600,000 Iterations) ---
+export const PBKDF2_ITERATIONS = 600_000;
 const KEY_LENGTH_BITS = 256;
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ * Compares character by character without early exit on mismatch.
+ */
+export function constantTimeEqual(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string") {
+    return false;
+  }
+  const aLen = a.length;
+  const bLen = b.length;
+  const maxLen = Math.max(aLen, bLen);
+  let mismatch = aLen ^ bLen;
+
+  for (let i = 0; i < maxLen; i++) {
+    const charA = i < aLen ? a.charCodeAt(i) : 0;
+    const charB = i < bLen ? b.charCodeAt(i) : 0;
+    mismatch |= charA ^ charB;
+  }
+
+  return mismatch === 0;
+}
 
 export function generateSalt(): string {
   const bytes = new Uint8Array(16);
@@ -50,8 +73,12 @@ async function legacyHashPassword(password: string, salt: string): Promise<strin
     .join("");
 }
 
-// আধুনিক PBKDF2 (HMAC-SHA-256, 100,000 Rounds) কি-স্ট্রেচিং অ্যালগরিদম
-export async function derivePbkdf2Hash(password: string, salt: string): Promise<string> {
+// আধুনিক PBKDF2 (HMAC-SHA-256, 600,000 Rounds) কি-স্ট্রেচিং অ্যালগরিদম
+export async function derivePbkdf2Hash(
+  password: string,
+  salt: string,
+  iterations: number = PBKDF2_ITERATIONS
+): Promise<string> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -65,7 +92,7 @@ export async function derivePbkdf2Hash(password: string, salt: string): Promise<
     {
       name: "PBKDF2",
       salt: enc.encode(salt),
-      iterations: PBKDF2_ITERATIONS,
+      iterations,
       hash: "SHA-256",
     },
     keyMaterial,
@@ -77,6 +104,25 @@ export async function derivePbkdf2Hash(password: string, salt: string): Promise<
     .join("");
 }
 
+// পাসওয়ার্ডের শক্তি যাচাই (অন্তত ৮ অক্ষর, অন্তত একটি বর্ণ এবং একটি সংখ্যা)
+export function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
+  if (!password || password.length < 8) {
+    return {
+      valid: false,
+      error: "পাসওয়ার্ড অন্তত ৮ অক্ষরের হতে হবে (একটি সংখ্যা সহ)।",
+    };
+  }
+  const hasLetter = /[a-zA-Z\u0980-\u09FF]/.test(password);
+  const hasNumber = /[0-9\u09E6-\u09EF]/.test(password);
+  if (!hasLetter || !hasNumber) {
+    return {
+      valid: false,
+      error: "পাসওয়ার্ডে অন্তত একটি অক্ষর এবং একটি সংখ্যা থাকতে হবে।",
+    };
+  }
+  return { valid: true };
+}
+
 // --- স্টোরেজ ---
 export function readUsers(): LocalUser[] {
   if (typeof window === "undefined") return [];
@@ -84,7 +130,12 @@ export function readUsers(): LocalUser[] {
     const raw = localStorage.getItem(STORAGE_KEY_USERS);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const result = localUserSchema.array().safeParse(parsed);
+    if (!result.success) {
+      console.error("LocalUser schema validation failed:", result.error);
+      return [];
+    }
+    return result.data;
   } catch (error) {
     console.error("Error reading users:", error);
     return [];
@@ -109,8 +160,12 @@ export async function createUser(input: {
   role: UserRole;
 }): Promise<{ ok: true; user: LocalUser } | { ok: false; error: string }> {
   const username = input.username.trim().toLowerCase();
-  if (!username || input.password.length < 4) {
-    return { ok: false, error: "ইউজারনেম দিন এবং পাসওয়ার্ড অন্তত ৪ অক্ষরের হতে হবে।" };
+  if (!username) {
+    return { ok: false, error: "ইউজারনেম দিন।" };
+  }
+  const pwdValidation = validatePasswordStrength(input.password);
+  if (!pwdValidation.valid) {
+    return { ok: false, error: pwdValidation.error || "পাসওয়ার্ড অন্তত ৮ অক্ষরের হতে হবে (একটি সংখ্যা সহ)।" };
   }
   const users = readUsers();
   if (users.some((u) => u.username === username)) {
@@ -118,8 +173,8 @@ export async function createUser(input: {
   }
 
   const salt = generateSalt();
-  const rawHash = await derivePbkdf2Hash(input.password, salt);
-  const passwordHash = `pbkdf2$100000$${rawHash}`;
+  const rawHash = await derivePbkdf2Hash(input.password, salt, PBKDF2_ITERATIONS);
+  const passwordHash = `pbkdf2$600000$${rawHash}`;
 
   const newUser: LocalUser = {
     id: crypto.randomUUID(),
@@ -130,7 +185,7 @@ export async function createUser(input: {
     branchId: DEFAULT_BRANCH_ID,
     passwordHash,
     passwordSalt: salt,
-    hashAlgorithm: "pbkdf2-sha256-100k",
+    hashAlgorithm: "pbkdf2-sha256-600k",
     isActive: true,
     createdAt: new Date().toISOString(),
   };
@@ -148,8 +203,9 @@ export async function resetUserPassword(
   userId: string,
   newPassword: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (newPassword.length < 4) {
-    return { ok: false, error: "পাসওয়ার্ড অন্তত ৪ অক্ষরের হতে হবে।" };
+  const pwdValidation = validatePasswordStrength(newPassword);
+  if (!pwdValidation.valid) {
+    return { ok: false, error: pwdValidation.error || "পাসওয়ার্ড অন্তত ৮ অক্ষরের হতে হবে (একটি সংখ্যা সহ)।" };
   }
   const users = readUsers();
   const user = users.find((u) => u.id === userId);
@@ -157,14 +213,14 @@ export async function resetUserPassword(
     return { ok: false, error: "ব্যবহারকারী পাওয়া যায়নি।" };
   }
   const salt = generateSalt();
-  const rawHash = await derivePbkdf2Hash(newPassword, salt);
+  const rawHash = await derivePbkdf2Hash(newPassword, salt, PBKDF2_ITERATIONS);
   const updatedUsers = users.map((u) =>
     u.id === userId
       ? {
           ...u,
-          passwordHash: `pbkdf2$100000$${rawHash}`,
+          passwordHash: `pbkdf2$600000$${rawHash}`,
           passwordSalt: salt,
-          hashAlgorithm: "pbkdf2-sha256-100k" as const,
+          hashAlgorithm: "pbkdf2-sha256-600k" as const,
         }
       : u
   );
@@ -184,31 +240,51 @@ export async function verifyLogin(
   }
 
   const isPbkdf2 =
+    user.hashAlgorithm === "pbkdf2-sha256-600k" ||
     user.hashAlgorithm === "pbkdf2-sha256-100k" ||
     (typeof user.passwordHash === "string" && user.passwordHash.startsWith("pbkdf2$"));
 
   if (isPbkdf2) {
     const parts = user.passwordHash.split("$");
-    const targetHash = parts.length === 3 ? parts[2] : user.passwordHash;
-    const attemptHash = await derivePbkdf2Hash(password, user.passwordSalt);
-    if (attemptHash !== targetHash) {
+    let iterations = 100_000;
+    let targetHash = user.passwordHash;
+    if (parts.length === 3) {
+      const parsedIter = parseInt(parts[1], 10);
+      if (!isNaN(parsedIter) && parsedIter > 0) {
+        iterations = parsedIter;
+      }
+      targetHash = parts[2];
+    } else if (user.hashAlgorithm === "pbkdf2-sha256-600k") {
+      iterations = 600_000;
+    }
+
+    const attemptHash = await derivePbkdf2Hash(password, user.passwordSalt, iterations);
+    if (!constantTimeEqual(attemptHash, targetHash)) {
       return { ok: false, error: "ভুল ইউজারনেম বা পাসওয়ার্ড।" };
+    }
+
+    // ১০০k বা পুরানো ইটারেশনের ইউজারদের পরবর্তী লগইনে স্বয়ংক্রিয়ভাবে ৬০০k-এ রিবিল্ড/মাইগ্রেট করা হচ্ছে
+    if (user.hashAlgorithm !== "pbkdf2-sha256-600k" || iterations < 600_000) {
+      const newSalt = generateSalt();
+      const newRawHash = await derivePbkdf2Hash(password, newSalt, 600_000);
+      user.passwordHash = `pbkdf2$600000$${newRawHash}`;
+      user.passwordSalt = newSalt;
+      user.hashAlgorithm = "pbkdf2-sha256-600k";
+      writeUsers(users);
     }
   } else {
     // পুরানো (Legacy) ১-রাউন্ড SHA-256 দিয়ে যাচাই
     const attemptHash = await legacyHashPassword(password, user.passwordSalt);
-    if (attemptHash !== user.passwordHash) {
+    if (!constantTimeEqual(attemptHash, user.passwordHash)) {
       return { ok: false, error: "ভুল ইউজারনেম বা পাসওয়ার্ড।" };
     }
 
-    // লগইন সফল! ইউজারকে কোনো ঝামেলা ছাড়াই নতুন PBKDF2-তে মাইগ্রেট করা হচ্ছে
+    // লগইন সফল! ইউজারকে সরাসরি নতুন ৬০০,০০০ PBKDF2-তে মাইগ্রেট করা হচ্ছে
     const newSalt = generateSalt();
-    const newRawHash = await derivePbkdf2Hash(password, newSalt);
-    const newPasswordHash = `pbkdf2$100000$${newRawHash}`;
-
-    user.passwordHash = newPasswordHash;
+    const newRawHash = await derivePbkdf2Hash(password, newSalt, 600_000);
+    user.passwordHash = `pbkdf2$600000$${newRawHash}`;
     user.passwordSalt = newSalt;
-    user.hashAlgorithm = "pbkdf2-sha256-100k";
+    user.hashAlgorithm = "pbkdf2-sha256-600k";
 
     writeUsers(users);
   }

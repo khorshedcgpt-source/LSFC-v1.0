@@ -1,5 +1,6 @@
-﻿import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { readInstitutionSettings } from "./institutionSettings";
+import { customerRecordSchema } from "./schemas";
 
 // ফেজ-১ (MVP) একটা মাত্র ব্র্যাঞ্চে চলবে — তাই এখন একটাই স্থির মান ব্যবহার হচ্ছে।
 // v1.0-এ প্রকৃত ব্র্যাঞ্চ-এনটিটি এলে এটা সেখান থেকে ডাইনামিকভাবে আসবে; ততক্ষণ
@@ -69,18 +70,78 @@ export function readCustomers(): CustomerRecord[] {
     const raw = localStorage.getItem(STORAGE_KEY_CUSTOMERS);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const result = customerRecordSchema.array().safeParse(parsed);
+    if (!result.success) {
+      console.error("CustomerRecord schema validation failed:", result.error);
+      return [];
+    }
+    return result.data;
   } catch (error) {
     console.error("Error reading customers from storage:", error);
     return [];
   }
 }
 
+/**
+ * Increments a customer number sequence by 1.
+ * Supports standard LSFC[geo]-[YY][serial] format as well as trailing digits.
+ */
+export function incrementCustomerNumber(customerNumber: string): string {
+  const prefix = buildCustomerNumberPrefix();
+  if (customerNumber.startsWith(prefix)) {
+    const serialStr = customerNumber.slice(prefix.length);
+    const serialNum = parseInt(serialStr, 10);
+    const nextNum = isNaN(serialNum) ? 1 : serialNum + 1;
+    const padLength = Math.max(4, serialStr.length);
+    return `${prefix}${String(nextNum).padStart(padLength, "0")}`;
+  }
+
+  const trailingMatch = customerNumber.match(/^(.*?)(\d+)$/);
+  if (trailingMatch) {
+    const base = trailingMatch[1];
+    const digits = trailingMatch[2];
+    const nextNum = parseInt(digits, 10) + 1;
+    return `${base}${String(nextNum).padStart(digits.length, "0")}`;
+  }
+
+  return `${customerNumber}-1`;
+}
+
 // Write customers to localStorage and dispatch event
 export function writeCustomers(customers: CustomerRecord[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY_CUSTOMERS, JSON.stringify(customers));
+    // Duplicate-check safety net: before saving, re-check that no existing record
+    // already has that exact customerNumber. If a collision is found, increment and retry (up to 5 attempts).
+    const seen = new Set<string>();
+    const sanitized = customers.map((c) => {
+      let custNo = c.customerNumber;
+      if (!custNo) return c;
+
+      if (seen.has(custNo)) {
+        console.warn(`Duplicate customerNumber collision detected for "${custNo}". Resolving...`);
+        let resolvedNo = custNo;
+        let success = false;
+        for (let attempt = 1; attempt <= 5; attempt++) {
+          resolvedNo = incrementCustomerNumber(resolvedNo);
+          if (!seen.has(resolvedNo)) {
+            console.warn(`Duplicate customerNumber resolved to "${resolvedNo}" on attempt ${attempt}`);
+            success = true;
+            break;
+          }
+        }
+        if (!success) {
+          console.error(`Failed to resolve duplicate customerNumber "${custNo}" after 5 attempts!`);
+        }
+        seen.add(resolvedNo);
+        return { ...c, customerNumber: resolvedNo };
+      }
+
+      seen.add(custNo);
+      return c;
+    });
+
+    localStorage.setItem(STORAGE_KEY_CUSTOMERS, JSON.stringify(sanitized));
     window.dispatchEvent(new CustomEvent(CUSTOMERS_UPDATED_EVENT));
   } catch (error) {
     console.error("Error saving customers to storage:", error);
@@ -116,6 +177,10 @@ export function buildCustomerNumberPrefix(): string {
 }
 
 /**
+ * TODO(Phase 2): This read-max-then-increment pattern is NOT safe for 
+ * multi-device or multi-center concurrent writes. Replace with a database 
+ * sequence before enabling cloud sync.
+ *
  * Generates the next human-readable customer unique ID for this center.
  * Format: LSFC[div:2][dist:2][upazila:2][license:2]-[YY:2][serial:4+]
  * Example: LSFC55495202-260042
@@ -291,10 +356,30 @@ export function upsertCustomer(record: Omit<CustomerRecord, "id"> & { id?: strin
     customers[existingIndex] = updatedRecord;
   } else {
     // New customer with RFC 9562 UUIDv7 + human-readable customerNumber
+    let customerNumber = record.customerNumber || generateCustomerNumber();
+    const existingNumbers = new Set(
+      customers.map((c) => c.customerNumber).filter(Boolean) as string[]
+    );
+    if (existingNumbers.has(customerNumber)) {
+      console.warn(`CustomerNumber collision detected: "${customerNumber}". Resolving...`);
+      let resolved = false;
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        customerNumber = incrementCustomerNumber(customerNumber);
+        if (!existingNumbers.has(customerNumber)) {
+          console.warn(`Collision resolved on attempt ${attempt}: new customerNumber "${customerNumber}"`);
+          resolved = true;
+          break;
+        }
+      }
+      if (!resolved) {
+        console.error(`Failed to resolve duplicate customerNumber "${customerNumber}" after 5 attempts!`);
+      }
+    }
+
     updatedRecord = {
       ...record,
       id: generateUUIDv7(),
-      customerNumber: record.customerNumber || generateCustomerNumber(),
+      customerNumber,
       branchId: record.branchId || DEFAULT_BRANCH_ID,
       mobile: phone,
       nidNo: nid || undefined,

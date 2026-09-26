@@ -193,7 +193,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="অন্তত ৪ অক্ষরের পাসওয়ার্ড"
+                placeholder="অন্তত ৮ অক্ষর, একটি সংখ্যা সহ"
                 className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#902A8B] focus:border-transparent outline-none"
               />
             </div>

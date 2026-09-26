@@ -115,7 +115,7 @@ export const DEFAULT_INSTITUTION_SETTINGS: InstitutionSettings = {
   socialMedia: "https://facebook.com/lsfc.ghogadaha",
   mobile: "01723506664",
   alternativePhone: "01912345678",
-  contactPerson: "মো: খন্দকার হাবিবুর রহমান (কেন্দ্র পরিচালক)",
+  contactPerson: "মো. খোরশেদ আলম",
 
   citizenPortalPassword: "",
 
@@ -320,6 +320,9 @@ export function readInstitutionSettings(): InstitutionSettings {
       }
       if (parsed.citizenPortalPassword === "Ab*12345") {
         parsed.citizenPortalPassword = "";
+      }
+      if (!parsed.contactPerson || parsed.contactPerson.includes("হাবিবুর রহমান")) {
+        parsed.contactPerson = DEFAULT_INSTITUTION_SETTINGS.contactPerson;
       }
       const currentBuiltInTypes = new Set(
         DEFAULT_INSTITUTION_SETTINGS.services.map((d) => d.builtInType).filter(Boolean)

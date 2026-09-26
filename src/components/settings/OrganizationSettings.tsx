@@ -472,7 +472,9 @@ export const OrganizationSettings: React.FC = () => {
                 placeholder="যেমন: পাসওয়ার্ড লিখুন (ঐচ্ছিক)"
                 className="w-full px-3 py-2 border rounded-lg font-mono text-sm"
               />
-              <p className="text-[10px] text-blue-700 mt-1.5">ভূমি মালিকদের জন্য প্রস্তাবিত পাসওয়ার্ড — ইনভয়েসের নিচে ছাপা হবে। খালি রাখলে শুধু মোবাইল নম্বর ছাপা হবে।</p>
+              <p className="text-[10px] text-blue-800 mt-1.5 leading-relaxed">
+                পাসওয়ার্ড সেট করা হলে তা সকল রসিদে ছাপা হবে। ফাঁকা রাখলে রসিদে কোনো পাসওয়ার্ড প্রিন্ট হবে না (শুধুমাত্র ইউজার ও পোর্টাল লিংক থাকবে)।
+              </p>
             </div>
           </div>
         </div>

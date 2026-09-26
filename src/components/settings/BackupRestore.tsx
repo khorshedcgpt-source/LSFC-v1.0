@@ -6,8 +6,12 @@ import {
 } from "../../utils/institutionSettings";
 import { readInvoices, writeInvoices } from "../../utils/invoiceStore";
 import { readCustomers, writeCustomers } from "../../utils/customerStore";
-import { readUsers, writeUsers } from "../../utils/authStore";
+import { readUsers } from "../../utils/authStore";
 import { readExpenses, writeExpenses } from "../../utils/expenseStore";
+import {
+  backupSnapshotSchema,
+  institutionSettingsPartialSchema,
+} from "../../utils/backupSchema";
 
 export const BackupRestore: React.FC = () => {
   const { settings, saveSettings } = useInstitutionSettings();
@@ -39,8 +43,10 @@ export const BackupRestore: React.FC = () => {
   const buildSnapshot = (type?: string) => {
     const invoices = readInvoices();
     const customers = readCustomers();
-    const users = readUsers();
+    // Security: Strip passwordHash and passwordSalt at the export boundary
+    const users = readUsers().map(({ passwordHash, passwordSalt, ...safe }) => safe);
     const expenses = readExpenses();
+
     return {
       system: "LSFC Management System",
       version: "2.0.0",
@@ -88,35 +94,60 @@ export const BackupRestore: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const parsed = JSON.parse(event.target?.result as string);
+        const rawContent = event.target?.result as string;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(rawContent);
+        } catch {
+          alert("ব্যাকআপ ফাইলটি সঠিক JSON ফরম্যাটে নেই। অনুগ্রহ করে বৈধ ব্যাকআপ ফাইল নির্বাচন করুন।");
+          return;
+        }
 
-        // ---------- Complete format ----------
-        if (parsed.data) {
-          const backupCounts = parsed.counts || {};
+        // ---------- 1. Complete format with 'data' container ----------
+        if (parsed && typeof parsed === "object" && "data" in parsed) {
+          const snapshotResult = backupSnapshotSchema.safeParse(parsed);
+          if (!snapshotResult.success) {
+            const errorDetails = snapshotResult.error.issues
+              .slice(0, 3)
+              .map((i) => `${i.path.join(" ➔ ")}: ${i.message}`)
+              .join("; ");
+            alert(`ব্যাকআপ ফাইলের স্কিমা ভ্যালিডেশনে ত্রুটি পাওয়া গেছে: ${errorDetails}`);
+            return;
+          }
+
+          const { data } = snapshotResult.data;
+
+          // Real counts computed from actual validated arrays — never self-reported metadata
+          const realCounts = {
+            invoices: Array.isArray(data.invoices) ? data.invoices.length : 0,
+            customers: Array.isArray(data.customers) ? data.customers.length : 0,
+            users: Array.isArray(data.users) ? data.users.length : 0,
+            expenses: Array.isArray(data.expenses) ? data.expenses.length : 0,
+          };
+
           const currentInvoices = readInvoices().length;
           const currentCustomers = readCustomers().length;
           const currentUsers = readUsers().length;
           const currentExpenses = readExpenses().length;
 
-          const inComing = {
-            invoices: backupCounts.invoices ?? parsed.data.invoices?.length ?? 0,
-            customers: backupCounts.customers ?? parsed.data.customers?.length ?? 0,
-            users: backupCounts.users ?? parsed.data.users?.length ?? 0,
-            expenses: backupCounts.expenses ?? parsed.data.expenses?.length ?? 0,
-          };
+          // Security warning: notify admin that users are NOT restored from backup
+          const userWarningLine =
+            realCounts.users > 0
+              ? `\n🔒 নিরাপত্তা সতর্কতা: ব্যাকআপ ফাইলের ব্যবহারকারী তথ্য রিস্টোর করা হবে না। নিরাপত্তা নিশ্চিত করতে বিদ্যমান ইউজার অ্যাকাউন্ট অপরিবর্তিত থাকবে; প্রয়োজনীয় কর্মী অ্যাকাউন্ট ইউজার ম্যানেজমেন্ট থেকে পুনরায় তৈরি করতে হবে।\n`
+              : "";
 
           const confirmMsg =
             `⚠️ সতর্কতা: রিস্টোর করলে বর্তমান সব ডেটা প্রতিস্থাপিত হবে!\n\n` +
-            `📦 ব্যাকআপে আছে:\n` +
-            `  • ইনভয়েস: ${inComing.invoices}টি\n` +
-            `  • ভূমি মালিক: ${inComing.customers}জন\n` +
-            `  • ইউজার: ${inComing.users}জন\n` +
-            `  • খরচ: ${inComing.expenses}টি\n\n` +
-            `💾 বর্তমানে আছে:\n` +
+            `📦 ব্যাকআপ ফাইলে প্রাপ্ত প্রকৃত রেকর্ড:\n` +
+            `  • ইনভয়েস: ${realCounts.invoices}টি\n` +
+            `  • ভূমি মালিক: ${realCounts.customers}জন\n` +
+            `  • খরচ: ${realCounts.expenses}টি\n\n` +
+            `💾 বর্তমানে সিস্টেমে আছে:\n` +
             `  • ইনভয়েস: ${currentInvoices}টি\n` +
             `  • ভূমি মালিক: ${currentCustomers}জন\n` +
+            `  • খরচ: ${currentExpenses}টি\n` +
             `  • ইউজার: ${currentUsers}জন\n` +
-            `  • খরচ: ${currentExpenses}টি\n\n` +
+            `${userWarningLine}\n` +
             `নিরাপত্তার জন্য রিস্টোরের আগে বর্তমান অবস্থার একটি auto-backup ডাউনলোড হয়ে যাবে।\n\n` +
             `আপনি কি নিশ্চিতভাবে রিস্টোর করতে চান?`;
 
@@ -128,29 +159,44 @@ export const BackupRestore: React.FC = () => {
           // Safety net: auto-backup current state before overwriting
           autoBackupBeforeRestore();
 
-          // Perform restore
-          if (parsed.data.institutionSettings) {
-            saveSettings(parsed.data.institutionSettings);
+          // Restore strictly validated data WITHOUT any 'as any' casting
+          if (data.institutionSettings) {
+            saveSettings({
+              ...DEFAULT_INSTITUTION_SETTINGS,
+              ...data.institutionSettings,
+            });
           }
-          if (Array.isArray(parsed.data.invoices)) {
-            writeInvoices(parsed.data.invoices);
+          if (data.invoices) {
+            writeInvoices(data.invoices);
           }
-          if (Array.isArray(parsed.data.customers)) {
-            writeCustomers(parsed.data.customers);
+          if (data.customers) {
+            writeCustomers(data.customers);
           }
-          if (Array.isArray(parsed.data.users)) {
-            writeUsers(parsed.data.users);
-          }
-          if (Array.isArray(parsed.data.expenses)) {
-            writeExpenses(parsed.data.expenses);
+          if (data.expenses) {
+            writeExpenses(data.expenses);
           }
 
+          const userNoticeText =
+            realCounts.users > 0
+              ? " (নিরাপত্তার স্বার্থে ইউজার অ্যাকাউন্ট রিস্টোর করা হয়নি, বিদ্যমান অ্যাকাউন্ট বহাল রয়েছে)"
+              : "";
+
           setBackupMessage(
-            `সফলভাবে রিস্টোর সম্পন্ন হয়েছে (${inComing.invoices}টি ইনভয়েস, ${inComing.customers} জন ভূমি মালিক, ${inComing.users} জন ইউজার, ${inComing.expenses}টি খরচ রেকর্ড)।`
+            `সফলভাবে রিস্টোর সম্পন্ন হয়েছে (${realCounts.invoices}টি ইনভয়েস, ${realCounts.customers} জন ভূমি মালিক, ${realCounts.expenses}টি খরচ রেকর্ড)${userNoticeText}।`
           );
         }
-        // ---------- Legacy settings-only format ----------
-        else if (parsed.orgNameBn) {
+        // ---------- 2. Legacy settings-only format ----------
+        else if (parsed && typeof parsed === "object" && "orgNameBn" in parsed) {
+          const settingsResult = institutionSettingsPartialSchema.safeParse(parsed);
+          if (!settingsResult.success) {
+            const errorDetails = settingsResult.error.issues
+              .slice(0, 3)
+              .map((i) => i.message)
+              .join("; ");
+            alert(`পুরনো সেটিংস ফাইলের স্কিমা ভ্যালিডেশনে ত্রুটি: ${errorDetails}`);
+            return;
+          }
+
           const ok = window.confirm(
             "এটি একটি পুরনো সেটিংস-শুধু ব্যাকআপ ফাইল। শুধু প্রতিষ্ঠান সেটিংস রিস্টোর হবে (ইনভয়েস/ভূমি মালিক/খরচ অপরিবর্তিত থাকবে)। চালিয়ে যাবেন?"
           );
@@ -158,15 +204,21 @@ export const BackupRestore: React.FC = () => {
             if (fileInputRef.current) fileInputRef.current.value = "";
             return;
           }
-          saveSettings(parsed);
+
+          saveSettings({
+            ...DEFAULT_INSTITUTION_SETTINGS,
+            ...settingsResult.data,
+          });
           setBackupMessage("সেটিংস সফলভাবে রিস্টোর হয়েছে।");
         } else {
-          throw new Error("Invalid backup format");
+          alert("ব্যাকআপ ফাইলের গঠন সঠিক নয় (অবৈধ JSON বা অপরিচিত ফরম্যাট)।");
+          return;
         }
 
-        setTimeout(() => setBackupMessage(null), 5000);
+        setTimeout(() => setBackupMessage(null), 6000);
       } catch (err) {
-        alert("ব্যাকআপ ফাইলটি ত্রুটিপূর্ণ বা অবৈধ। অনুগ্রহ করে সঠিক JSON ফাইল নির্বাচন করুন।");
+        console.error("Backup restore error:", err);
+        alert("ব্যাকআপ ফাইলটি প্রক্রিয়াকরণে ত্রুটি ঘটেছে। অনুগ্রহ করে সঠিক JSON ফাইল নির্বাচন করুন।");
       }
     };
     reader.readAsText(file);
@@ -231,4 +283,4 @@ export const BackupRestore: React.FC = () => {
       </div>
     </div>
   );
-}
+};

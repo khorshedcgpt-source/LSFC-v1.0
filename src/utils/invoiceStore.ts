@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { upsertCustomer, generateUUIDv7, DEFAULT_BRANCH_ID } from "./customerStore";
+import { invoiceRecordSchema } from "./schemas";
 
 export interface InvoiceCustomer {
   customerId?: string;
@@ -24,18 +25,18 @@ export interface InvoiceLine {
 
 export interface PaymentInstallment {
   id: string;
-  amount: number; // কত টাকা জমা দেওয়া হলো
+  amount: number; // কত টাকা জমা দেওয়া হলো
   date: string; // জমার তারিখ (YYYY-MM-DD)
   receivedBy?: string; // গ্রহণকারী কর্মী
   note?: string; // মন্তব্য
 }
 
 // --- কালেকশন Waterfall (v1.3) ---
-// প্রতিটা কালেকশনের (initial payment + পরবর্তী বকেয়া আদায়) টাকা এই ক্রমে বণ্টন হয়:
-// সরকারি ফি -> ডাক ফি -> গেটওয়ে ফি -> কেন্দ্র ফি (কারণ: সরকারি/ডাক/গেটওয়ে ফি অগ্রিম পরিশোধ করতে হয়)।
-// শুধু centerPortion-ই প্রকৃত আয় (নিট-মুনাফায় গণনাযোগ্য) -- বাকি অংশ pass-through।
-// বকেয়া টাকা কালেকশন না হওয়া পর্যন্ত তা আয় হিসেবে গণ্য হবে না -- তাই centerPortion
-// কালেকশনের তারিখেই আয় হিসেবে যোগ হয়, ইনভয়েস তৈরির তারিখে নয়।
+// প্রতিটা কালেকশনের (initial payment + পরবর্তী বকেয়া আদায়) টাকা এই ক্রমে বণ্টন হয়:
+// সরকারি ফি -> ডাক ফি -> গেটওয়ে ফি -> কেন্দ্র ফি (কারণ: সরকারি/ডাক/গেটওয়ে ফি অগ্রিম পরিশোধ করতে হয়)।
+// শুধু centerPortion-ই প্রকৃত আয় (নিট-মুনাফায় গণনাযোগ্য) -- বাকি অংশ pass-through।
+// বকেয়া টাকা কালেকশন না হওয়া পর্যন্ত তা আয় হিসেবে গণ্য হবে না -- তাই centerPortion
+// কালেকশনের তারিখেই আয় হিসেবে যোগ হয়, ইনভয়েস তৈরির তারিখে নয়।
 export interface InvoiceCollection {
   id: string;
   date: string; // যেদিন টাকা কালেকশন হলো (YYYY-MM-DD)
@@ -43,7 +44,7 @@ export interface InvoiceCollection {
   govtPortion: number;
   postalPortion: number;
   gatewayPortion: number;
-  centerPortion: number; // শুধু এই অংশটাই নিট-মুনাফায়/আয়ে গণনা হবে
+  centerPortion: number; // শুধু এই অংশটাই নিট-মুনাফায়/আয়ে গণনা হবে
   receivedBy?: string;
   note?: string;
 }
@@ -52,25 +53,25 @@ export interface InvoiceRecord {
   centerId?: string;
   districtId?: string;
   upazilaId?: string;
-  id?: string; // স্থায়ী, গ্লোবালি-ইউনিক আইডি (UUID) -- ভবিষ্যতে multi-device/multi-branch সিংকের জন্য
+  id?: string; // স্থায়ী, গ্লোবালি-ইউনিক আইডি (UUID) -- ভবিষ্যতে multi-device/multi-branch সিংকের জন্য
   branchId?: string;
-  invoiceNo: string; // Deterministic 8-char: DDMMYYSS -- মানুষের পড়ার জন্য, রসিদে ছাপা হয়, এখনো lookup-key হিসেবে ব্যবহৃত
+  invoiceNo: string; // Deterministic 8-char: DDMMYYSS -- মানুষের পড়ার জন্য, রসিদে ছাপা হয়, এখনো lookup-key হিসেবে ব্যবহৃত
   customer: InvoiceCustomer;
   lines: InvoiceLine[];
   total: number;
   paidAmount?: number; // ভূমি মালিক কর্তৃক পরিশোধিত মোট টাকা
   dueAmount?: number; // অবশিষ্ট পাওনা (যদি থাকে)
-  discountAmount?: number; // বিশেষ ছাড় / মাফকৃত টাকা (শুধু কেন্দ্র-ফি অংশ থেকে কাটা হয়)
+  discountAmount?: number; // বিশেষ ছাড় / মাফকৃত টাকা (শুধু কেন্দ্র-ফি অংশ থেকে কাটা হয়)
   paymentStatus?: "PAID" | "PARTIAL" | "WAIVED";
   paymentHistory?: PaymentInstallment[];
-  collections?: InvoiceCollection[]; // waterfall-ভিত্তিক আয়-বণ্টনের অডিট ট্রেইল
+  collections?: InvoiceCollection[]; // waterfall-ভিত্তিক আয়-বণ্টনের অডিট ট্রেইল
   createdAt: string;
   applicationTrackingNo?: string;
   status?: "ACTIVE" | "VOIDED";
   paymentMethod?: string;
 }
 
-// ইনভয়েসের লাইনগুলো থেকে সামগ্রিক (লাইন-বাই-লাইন নয়, পুরো ইনভয়েস একত্রে) ফি-টোটাল হিসাব
+// ইনভয়েসের লাইনগুলো থেকে সামগ্রিক (লাইন-বাই-লাইন নয়, পুরো ইনভয়েস একত্রে) ফি-টোটাল হিসাব
 export function computeInvoiceFeeTotals(invoice: Pick<InvoiceRecord, "lines">): {
   govtTotal: number;
   postalTotal: number;
@@ -91,161 +92,399 @@ export function computeInvoiceFeeTotals(invoice: Pick<InvoiceRecord, "lines">): 
   };
 }
 
-/**
- * নতুন কালেকশনের টাকা waterfall অনুযায়ী বণ্টন করা: সরকারি ফি -> ডাক ফি -> গেটওয়ে ফি -> কেন্দ্র ফি।
- * আগের কালেকশনগুলোয় ইতিমধ্যে কতটুকু প্রতিটি খাতে জমা হয়েছে তা বিবেচনা করে বাকি ধারণক্ষমতা বের করা হয়।
- * মাফকৃত (discountAmount) টাকা শুধু কেন্দ্র-ফি অংশের ধারণক্ষমতা থেকে কাটা হয় (cap) -- সরকারি/ডাক/গেটওয়ে অংশ কখনো প্রভাবিত হয় না।
- */
+// একটি নির্দিষ্ট কালেকশন পেমেন্টকে সরকারি/ডাক/গেটওয়ে/কেন্দ্র ফি-র ক্রমানুসারে বণ্টন
 export function allocateCollectionWaterfall(
-  invoice: Pick<InvoiceRecord, "lines" | "collections" | "discountAmount">,
-  incomingAmount: number
-): { govtPortion: number; postalPortion: number; gatewayPortion: number; centerPortion: number } {
-  const { govtTotal, postalTotal, gatewayTotal, centerTotal } = computeInvoiceFeeTotals(invoice);
-  const pastCollections = invoice.collections || [];
+  invoice: Pick<InvoiceRecord, "lines" | "collections">,
+  newPaymentAmount: number
+): {
+  govtPortion: number;
+  postalPortion: number;
+  gatewayPortion: number;
+  centerPortion: number;
+} {
+  const totals = computeInvoiceFeeTotals(invoice);
+  const prior = (invoice.collections || []).reduce(
+    (acc, c) => ({
+      govt: acc.govt + (c.govtPortion || 0),
+      postal: acc.postal + (c.postalPortion || 0),
+      gateway: acc.gateway + (c.gatewayPortion || 0),
+      center: acc.center + (c.centerPortion || 0),
+    }),
+    { govt: 0, postal: 0, gateway: 0, center: 0 }
+  );
 
-  const collectedGovt = pastCollections.reduce((s, c) => s + (c.govtPortion || 0), 0);
-  const collectedPostal = pastCollections.reduce((s, c) => s + (c.postalPortion || 0), 0);
-  const collectedGateway = pastCollections.reduce((s, c) => s + (c.gatewayPortion || 0), 0);
-  const collectedCenter = pastCollections.reduce((s, c) => s + (c.centerPortion || 0), 0);
+  let remaining = Math.max(0, newPaymentAmount);
 
-  const waivedFromCenter = Math.min(invoice.discountAmount || 0, centerTotal);
-  const centerCapacityTotal = Math.max(0, centerTotal - waivedFromCenter);
+  const neededGovt = Math.max(0, totals.govtTotal - prior.govt);
+  const govtPortion = Math.min(remaining, neededGovt);
+  remaining -= govtPortion;
 
-  let remaining = Math.max(0, incomingAmount);
+  const neededPostal = Math.max(0, totals.postalTotal - prior.postal);
+  const postalPortion = Math.min(remaining, neededPostal);
+  remaining -= postalPortion;
 
-  const take = (capacity: number) => {
-    const portion = Math.min(remaining, Math.max(0, capacity));
-    remaining = Math.round((remaining - portion) * 100) / 100;
-    return Math.round(portion * 100) / 100;
+  const neededGateway = Math.max(0, totals.gatewayTotal - prior.gateway);
+  const gatewayPortion = Math.min(remaining, neededGateway);
+  remaining -= gatewayPortion;
+
+  const neededCenter = Math.max(0, totals.centerTotal - prior.center);
+  const centerPortion = Math.min(remaining, neededCenter);
+
+  return {
+    govtPortion: Math.round(govtPortion * 100) / 100,
+    postalPortion: Math.round(postalPortion * 100) / 100,
+    gatewayPortion: Math.round(gatewayPortion * 100) / 100,
+    centerPortion: Math.round(centerPortion * 100) / 100,
   };
-
-  const govtPortion = take(govtTotal - collectedGovt);
-  const postalPortion = take(postalTotal - collectedPostal);
-  const gatewayPortion = take(gatewayTotal - collectedGateway);
-  let centerPortion = take(centerCapacityTotal - collectedCenter);
-
-  // ওভারপেমেন্ট (স্বাভাবিকভাবে হওয়ার কথা না, কিন্তু নিরাপত্তার জন্য) -- অবশিষ্ট থাকলে কেন্দ্র-ফি'তে যোগ
-  if (remaining > 0) {
-    centerPortion = Math.round((centerPortion + remaining) * 100) / 100;
-  }
-
-  return { govtPortion, postalPortion, gatewayPortion, centerPortion };
 }
 
-/**
- * Waterfall নিয়ম অনুযায়ী একটি ইনভয়েস থেকে প্রকৃতপক্ষে সংগৃহীত কেন্দ্র ফি (realized center fee) বের করে:
- * ১. যদি collections অ্যারে থাকে, তবে প্রতিটি কালেকশনের centerPortion-এর যোগফল নেওয়া হয়।
- * ২. যদি collections না থাকে (যেমন: পুরনো রেকর্ড), তবে paidAmount-এর ওপর allocateCollectionWaterfall চালানো হয়।
- * ৩. যদি paidAmount = 0 বা বকেয়া থাকে, তবে সংগৃহীত কেন্দ্র ফি কঠোরভাবে ০ (Zero) হবে।
- * ৪. কোনো মাফ (waived/discountAmount) থাকলে তা শুধু কেন্দ্র ফি থেকে বাদ যায়।
- */
-export function getInvoiceRealizedCenterFee(
-  invoice: Pick<InvoiceRecord, "lines" | "collections" | "discountAmount" | "paidAmount" | "dueAmount" | "total" | "status">
-): number {
-  if (invoice.status === "VOIDED") return 0;
-
-  // ১. কালেকশন হিস্ট্রি থাকলে সরাসরি সংগৃহীত centerPortion-এর যোগফল
+// কোনো ইনভয়েস থেকে আজ পর্যন্ত প্রকৃতপক্ষে কত টাকা কেন্দ্র-ফি (আয়) আদায় হয়েছে
+export function getInvoiceRealizedCenterFee(invoice: InvoiceRecord): number {
   if (invoice.collections && invoice.collections.length > 0) {
     return invoice.collections.reduce((sum, c) => sum + (c.centerPortion || 0), 0);
   }
-
-  // ২. কালেকশন না থাকলে প্রকৃত পরিশোধিত টাকার ওপর ওয়াটারফল সিমুলেশন
-  const paid = invoice.paidAmount !== undefined 
-    ? invoice.paidAmount 
-    : (invoice.dueAmount === 0 ? invoice.total : 0);
-
-  if (paid <= 0) return 0;
-
-  // govt -> postal -> gateway -> center ক্রমে বরাদ্দ
-  const allocation = allocateCollectionWaterfall(
-    { lines: invoice.lines, collections: [], discountAmount: invoice.discountAmount },
-    paid
-  );
-  return allocation.centerPortion || 0;
+  const totals = computeInvoiceFeeTotals(invoice);
+  const effectivePaid =
+    invoice.paidAmount !== undefined
+      ? invoice.paidAmount
+      : invoice.paymentStatus === "PAID"
+      ? invoice.total
+      : 0;
+  const nonCenterTotal = totals.govtTotal + totals.postalTotal + totals.gatewayTotal;
+  const centerRealized = Math.max(0, effectivePaid - nonCenterTotal);
+  return Math.min(centerRealized, totals.centerTotal);
 }
 
-export const STORAGE_KEY_INVOICES = "lsfc.invoices";
+export const LSFC_INVOICES_KEY = "lsfc.invoices";
 export const LSFC_INVOICES_UPDATED_EVENT = "lsfc:invoices-updated";
 
-// Deterministic Invoice Number generator: DDMMYYSS
-// অপরিবর্তিত রাখা হয়েছে — একাধিক ব্র্যাঞ্চ চালু হলে (v1.0) এখানে branchCode-প্রিফিক্স
-// যোগ করতে হবে, কিন্তু MVP একক-ব্র্যাঞ্চে এই স্কিমই যথেষ্ট ও নিরাপদ।
-export function generateInvoiceNo(date: Date = new Date()): string {
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = String(date.getFullYear()).slice(-2);
-  const prefix = `${day}${month}${year}`;
+// =========================================================================
+// AUDIT LOGGING FOR HARD DELETIONS (lsfc.auditLog)
+// =========================================================================
 
-  const invoices = readInvoices();
-  const todayInvoices = invoices.filter((inv) => inv.invoiceNo.startsWith(prefix));
+export interface InvoiceAuditLogEntry {
+  id: string;
+  action: "DELETE_INVOICE";
+  timestamp: string;
+  deletedBy: string;
+  invoiceNo: string;
+  previousInvoiceData: InvoiceRecord;
+  reason?: string;
+}
 
-  let maxSeq = 0;
-  for (const inv of todayInvoices) {
-    const seqStr = inv.invoiceNo.slice(6);
-    const seqNum = parseInt(seqStr, 10);
-    if (!isNaN(seqNum) && seqNum > maxSeq) {
-      maxSeq = seqNum;
+export const STORAGE_KEY_AUDIT_LOG = "lsfc.auditLog";
+export const AUDIT_LOG_CAPACITY = 500;
+
+/**
+ * ARCHITECTURAL DECISION & AUDIT TRAIL INTEGRITY (FIX C):
+ * Time-based automated silent deletion (e.g. purging entries older than 30/90 days) was explicitly
+ * evaluated and REJECTED. In government land service facilitation (LSFC), audit records must remain
+ * immutable and permanent for legal transparency and administrative audits.
+ * Therefore, when active localStorage reaches the 500-entry capacity, the oldest excess records are
+ * exported to a downloadable JSON archive before being pruned from localStorage. If the archive
+ * download fails, pruning is aborted so zero records are lost silently.
+ */
+function downloadAuditArchive(entries: InvoiceAuditLogEntry[], filename: string): boolean {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return false;
+  }
+  try {
+    const blob = new Blob([JSON.stringify(entries, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return true;
+  } catch (err) {
+    console.error("Failed to trigger audit log archive download:", err);
+    return false;
+  }
+}
+
+export function readAuditLog(): InvoiceAuditLogEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_AUDIT_LOG);
+    return raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    console.error("Failed to read audit log:", err);
+    return [];
+  }
+}
+
+/**
+ * FIX C: Writes audit entries to localStorage capped at 500 entries.
+ * When the cap is exceeded, excess oldest entries are archived as a JSON file download first,
+ * and pruned only upon successful download. Returns true on successful write, false on failure.
+ */
+export function writeAuditLog(entries: InvoiceAuditLogEntry[]): boolean {
+  if (typeof window === "undefined") return false;
+
+  let entriesToStore = entries;
+
+  if (entries.length > AUDIT_LOG_CAPACITY) {
+    const entriesToKeep = entries.slice(0, AUDIT_LOG_CAPACITY);
+    const excessEntriesToArchive = entries.slice(AUDIT_LOG_CAPACITY);
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `LSFC-AuditLog-Archive-${dateStr}.json`;
+
+    const downloadSuccess = downloadAuditArchive(excessEntriesToArchive, filename);
+    if (!downloadSuccess) {
+      console.warn("Audit log archive download failed; aborting pruning to preserve immutable records.");
+    } else {
+      entriesToStore = entriesToKeep;
     }
   }
 
-  const nextSeq = String(maxSeq + 1).padStart(2, "0");
-  return `${prefix}${nextSeq}`;
+  try {
+    localStorage.setItem(STORAGE_KEY_AUDIT_LOG, JSON.stringify(entriesToStore));
+    return true;
+  } catch (err) {
+    console.error("Failed to write audit log to localStorage (e.g. quota exceeded):", err);
+    return false;
+  }
+}
+
+/**
+ * FIX D: Deep-clone helper to prevent reference sharing between the live object and audit record.
+ */
+function deepClone<T>(obj: T): T {
+  if (typeof structuredClone === "function") {
+    try {
+      return structuredClone(obj);
+    } catch {
+      // fallback in case of non-cloneable objects
+    }
+  }
+  return JSON.parse(JSON.stringify(obj));
+}
+
+export interface DeleteStoredInvoiceOptions {
+  _adminOnly: true;
+  deletedBy: string;
+  reason?: string;
+}
+
+/**
+ * FIX A, B, D, E: Hard delete — strictly reserved for admin cleanup.
+ *
+ * NOTE: The `_adminOnly: true` flag is an accidental-misuse guard only, intended to prevent
+ * unintentional invocation from standard UI flows; it is NOT cryptographically secure client-side
+ * authorization enforcement. Real enforcement requires a secure server-side role check, which will
+ * be implemented in a future phase.
+ */
+export function deleteStoredInvoice(
+  invoiceNo: string,
+  options: DeleteStoredInvoiceOptions
+): boolean {
+  // FIX A: Explicit guard requiring _adminOnly: true
+  if (!options || options._adminOnly !== true) {
+    throw new Error(
+      "অননুমোদিত অপারেশন: ইনভয়েস স্থায়ীভাবে মুছে ফেলার জন্য '_adminOnly: true' বিকল্পটি আবশ্যক।"
+    );
+  }
+
+  // FIX E: Require deletedBy string from caller without any authStore dependency
+  if (!options.deletedBy || !options.deletedBy.trim()) {
+    throw new Error(
+      "অডিট ট্রেইলের জন্য ডিলিটকারী ইউজারের নাম (deletedBy) আবশ্যক।"
+    );
+  }
+
+  const invoices = readInvoices();
+  const target = invoices.find((inv) => inv.invoiceNo === invoiceNo);
+  if (!target) return false;
+
+  // FIX D: Deep clone previousInvoiceData to prevent reference sharing
+  const clonedTarget = deepClone(target);
+
+  const auditEntry: InvoiceAuditLogEntry = {
+    id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    action: "DELETE_INVOICE",
+    timestamp: new Date().toISOString(),
+    deletedBy: options.deletedBy.trim(),
+    invoiceNo: target.invoiceNo,
+    previousInvoiceData: clonedTarget,
+    reason: options.reason,
+  };
+
+  // FIX B: Order of operations — write audit log entry first, verify success before removing invoice
+  const currentLogs = readAuditLog();
+  const writeSuccess = writeAuditLog([auditEntry, ...currentLogs]);
+
+  // If writeAuditLog returns false (e.g. quota exceeded), abort delete entirely
+  if (!writeSuccess) {
+    console.error(
+      `[AuditLog] Failed to persist audit log entry for invoice ${invoiceNo}. Invoice deletion aborted.`
+    );
+    return false;
+  }
+
+  // Only remove invoice from storage AFTER audit log write is confirmed successful
+  const filtered = invoices.filter((inv) => inv.invoiceNo !== invoiceNo);
+  writeInvoices(filtered);
+  return true;
 }
 
 export function readInvoices(): InvoiceRecord[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_INVOICES);
+    const raw = localStorage.getItem(LSFC_INVOICES_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error("Error reading invoices from storage:", error);
+    const result = invoiceRecordSchema.array().safeParse(parsed);
+    if (!result.success) {
+      console.error("InvoiceRecord schema validation failed:", result.error);
+      return [];
+    }
+    return result.data;
+  } catch (err) {
+    console.error("Failed to read invoices from localStorage:", err);
     return [];
   }
+}
+
+/**
+ * Increments an invoice number sequence by 1.
+ * Supports standard DDMMYYSS format as well as generic suffix numbers.
+ */
+export function incrementInvoiceNo(invoiceNo: string): string {
+  if (/^\d{6}\d+$/.test(invoiceNo)) {
+    const prefix = invoiceNo.slice(0, 6);
+    const seqStr = invoiceNo.slice(6);
+    const seq = parseInt(seqStr, 10);
+    const nextSeq = isNaN(seq) ? 1 : seq + 1;
+    const padLength = Math.max(2, seqStr.length);
+    return `${prefix}${String(nextSeq).padStart(padLength, "0")}`;
+  }
+
+  const trailingDigitsMatch = invoiceNo.match(/^(.*?)(\d+)$/);
+  if (trailingDigitsMatch) {
+    const base = trailingDigitsMatch[1];
+    const digits = trailingDigitsMatch[2];
+    const nextNum = parseInt(digits, 10) + 1;
+    return `${base}${String(nextNum).padStart(digits.length, "0")}`;
+  }
+
+  return `${invoiceNo}-1`;
 }
 
 export function writeInvoices(invoices: InvoiceRecord[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY_INVOICES, JSON.stringify(invoices));
+    // Duplicate-check safety net: before saving, re-check that no existing record
+    // already has that exact invoiceNo. If a collision is found, increment and retry (up to 5 attempts).
+    const seen = new Set<string>();
+    const sanitized = invoices.map((inv) => {
+      let invNo = inv.invoiceNo;
+      if (!invNo) return inv;
+
+      if (seen.has(invNo)) {
+        console.warn(`Duplicate invoiceNo collision detected for "${invNo}". Resolving...`);
+        let resolvedNo = invNo;
+        let success = false;
+        for (let attempt = 1; attempt <= 5; attempt++) {
+          resolvedNo = incrementInvoiceNo(resolvedNo);
+          if (!seen.has(resolvedNo)) {
+            console.warn(`Duplicate invoiceNo resolved to "${resolvedNo}" on attempt ${attempt}`);
+            success = true;
+            break;
+          }
+        }
+        if (!success) {
+          console.error(`Failed to resolve duplicate invoiceNo "${invNo}" after 5 attempts!`);
+        }
+        seen.add(resolvedNo);
+        return { ...inv, invoiceNo: resolvedNo };
+      }
+
+      seen.add(invNo);
+      return inv;
+    });
+
+    localStorage.setItem(LSFC_INVOICES_KEY, JSON.stringify(sanitized));
     window.dispatchEvent(new CustomEvent(LSFC_INVOICES_UPDATED_EVENT));
-  } catch (error) {
-    console.error("Error writing invoices to storage:", error);
+  } catch (err) {
+    console.error("Failed to write invoices to localStorage:", err);
   }
 }
 
-export function addInvoice(invoice: InvoiceRecord): InvoiceRecord {
+export function addStoredInvoice(invoice: InvoiceRecord): InvoiceRecord {
   const invoices = readInvoices();
-  // Ensure customer profile is recorded/updated
-  const savedCustomer = upsertCustomer({
-    fullName: invoice.customer.fullName,
-    mobile: invoice.customer.mobile,
-    nidNo: invoice.customer.nidNo,
-    address: invoice.customer.address,
-  });
+  const globalId = invoice.id || generateUUIDv7();
+  const branchId = invoice.branchId || DEFAULT_BRANCH_ID;
 
-  // id/branchId না থাকলে (পুরনো caller কোড থেকে এলে) এখানেই বসিয়ে দেওয়া হয়,
-  // যাতে caller-দের এখনই বদলাতে না হয়
+  // Safety net: re-check that no existing record already has that exact invoiceNo
+  let finalInvoiceNo = invoice.invoiceNo;
+  const existingNumbers = new Set(invoices.map((inv) => inv.invoiceNo));
+
+  if (existingNumbers.has(finalInvoiceNo)) {
+    console.warn(`Duplicate invoiceNo collision detected: "${finalInvoiceNo}". Resolving...`);
+    let resolved = false;
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      finalInvoiceNo = incrementInvoiceNo(finalInvoiceNo);
+      if (!existingNumbers.has(finalInvoiceNo)) {
+        console.warn(`Collision resolved on attempt ${attempt}: new invoiceNo "${finalInvoiceNo}"`);
+        resolved = true;
+        break;
+      }
+    }
+    if (!resolved) {
+      console.error(`Failed to resolve duplicate invoiceNo "${invoice.invoiceNo}" after 5 attempts!`);
+    }
+  }
+
+  let customerId = invoice.customer.customerId;
+  if (!customerId) {
+    const upserted = upsertCustomer({
+      fullName: invoice.customer.fullName,
+      mobile: invoice.customer.mobile,
+      nidNo: invoice.customer.nidNo,
+      brnNo: invoice.customer.brnNo,
+      address: invoice.customer.address,
+      branchId,
+    });
+    customerId = upserted.id;
+  }
+
   const completeInvoice: InvoiceRecord = {
     ...invoice,
-    id: invoice.id || generateUUIDv7(),
-    branchId: invoice.branchId || DEFAULT_BRANCH_ID,
+    invoiceNo: finalInvoiceNo,
+    id: globalId,
+    branchId,
     customer: {
       ...invoice.customer,
-      customerId: invoice.customer.customerId || savedCustomer.id,
+      customerId,
     },
+    paidAmount: invoice.paidAmount !== undefined ? invoice.paidAmount : invoice.total,
+    dueAmount: invoice.dueAmount !== undefined ? invoice.dueAmount : 0,
+    discountAmount: invoice.discountAmount !== undefined ? invoice.discountAmount : 0,
+    paymentStatus: invoice.paymentStatus || "PAID",
+    paymentHistory: invoice.paymentHistory || [],
+    collections: invoice.collections || [],
   };
 
-  // প্রাথমিক জমার টাকা waterfall অনুযায়ী বণ্টন করে প্রথম কালেকশন এন্ট্রি তৈরি (caller থেকে
-  // collections না এলে) -- এতে "কালেকশন না হওয়া পর্যন্ত আয় গণ্য হবে না" নীতিটা শুরু থেকেই বজায় থাকে
-  if (!completeInvoice.collections && (completeInvoice.paidAmount || 0) > 0) {
-    const portions = allocateCollectionWaterfall(completeInvoice, completeInvoice.paidAmount || 0);
+  const initialPaid = completeInvoice.paidAmount || 0;
+  if (
+    initialPaid > 0 &&
+    (!completeInvoice.collections || completeInvoice.collections.length === 0)
+  ) {
+    const dateStr = completeInvoice.createdAt
+      ? completeInvoice.createdAt.slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    const portions = allocateCollectionWaterfall(completeInvoice, initialPaid);
     completeInvoice.collections = [
       {
-        id: `col-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        date: (completeInvoice.createdAt || new Date().toISOString()).slice(0, 10),
-        amount: completeInvoice.paidAmount || 0,
+        id: `col-init-${Date.now()}`,
+        date: dateStr,
+        amount: initialPaid,
         ...portions,
         receivedBy: completeInvoice.paymentMethod,
         note: "প্রাথমিক জমা",
@@ -256,12 +495,6 @@ export function addInvoice(invoice: InvoiceRecord): InvoiceRecord {
   const updatedInvoices = [completeInvoice, ...invoices];
   writeInvoices(updatedInvoices);
   return completeInvoice;
-}
-
-export function deleteStoredInvoice(invoiceNo: string): void {
-  const invoices = readInvoices();
-  const filtered = invoices.filter((inv) => inv.invoiceNo !== invoiceNo);
-  writeInvoices(filtered);
 }
 
 export function voidInvoice(invoiceNo: string): void {
@@ -311,8 +544,6 @@ export function recordDuePayment(
     note: payment.note,
   };
 
-  // waterfall: এই কিস্তির টাকা আগে সরকারি/ডাক/গেটওয়ে ফি মেটাবে, বাকিটা কেন্দ্র-ফি (আয়) --
-  // এবং centerPortion আজকের (কালেকশনের) তারিখেই আয় হিসেবে গণ্য হবে, ইনভয়েস-তারিখে নয়
   const portions = allocateCollectionWaterfall(target, payment.amount);
   const collectionEntry: InvoiceCollection = {
     id: `col-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -337,6 +568,36 @@ export function recordDuePayment(
   return { ok: true, invoice: updatedInvoice };
 }
 
+/**
+ * TODO(Phase 2): This read-max-then-increment pattern is NOT safe for 
+ * multi-device or multi-center concurrent writes. Replace with a database 
+ * sequence before enabling cloud sync.
+ */
+export function generateInvoiceNo(): string {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yy = String(now.getFullYear()).slice(-2);
+  const prefix = `${dd}${mm}${yy}`;
+
+  const invoices = readInvoices();
+  let maxSeq = 0;
+  for (const inv of invoices) {
+    if (inv.invoiceNo && inv.invoiceNo.startsWith(prefix)) {
+      const seqStr = inv.invoiceNo.slice(prefix.length);
+      const seq = parseInt(seqStr, 10);
+      if (!isNaN(seq) && seq > maxSeq) {
+        maxSeq = seq;
+      }
+    }
+  }
+
+  const nextSeq = String(maxSeq + 1).padStart(2, "0");
+  return `${prefix}${nextSeq}`;
+}
+
+export const addInvoice = addStoredInvoice;
+
 export function useInvoices() {
   const [invoices, setInvoices] = useState<InvoiceRecord[]>(readInvoices);
 
@@ -355,5 +616,5 @@ export function useInvoices() {
     };
   }, [refresh]);
 
-  return { invoices, refresh, addInvoice, deleteInvoice: deleteStoredInvoice, voidInvoice };
+  return { invoices, refresh, addInvoice, voidInvoice };
 }

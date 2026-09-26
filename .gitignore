@@ -1,4 +1,4 @@
-﻿# Dependencies
+# Dependencies
 node_modules/
 
 # Build output
@@ -28,6 +28,10 @@ test-*.pdf
 rendered_sample.png
 trimmed.*
 
+# Binaries & Executables
+*.exe
+
 # Backups
 src_backup_*
+docs_backup_*
 audit-reports/

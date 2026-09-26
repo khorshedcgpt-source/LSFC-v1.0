@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { expenseRecordSchema } from "./schemas";
 
 export type ExpenseCategory =
   | "stationery" // কাগজ, খাতা, স্ট্যাপলার
@@ -74,13 +75,16 @@ export function readExpenses(): ExpenseRecord[] {
     const raw = localStorage.getItem(STORAGE_KEY_EXPENSES);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    const migrated: ExpenseRecord[] = parsed.map((e: Partial<ExpenseRecord>) => ({
-      ...e,
-      status: e.status ?? "approved",
-    })) as ExpenseRecord[];
+    const prepared = Array.isArray(parsed)
+      ? parsed.map((e: any) => (e && typeof e === "object" ? { ...e, status: e.status ?? "approved" } : e))
+      : parsed;
+    const result = expenseRecordSchema.array().safeParse(prepared);
+    if (!result.success) {
+      console.error("ExpenseRecord schema validation failed:", result.error);
+      return [];
+    }
     // তারিখ অনুযায়ী সর্বশেষ খরচ আগে সাজানো
-    return migrated.sort(
+    return result.data.sort(
       (a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime()
     );
   } catch (err) {

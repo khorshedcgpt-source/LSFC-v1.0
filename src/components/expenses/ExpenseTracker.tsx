@@ -400,7 +400,7 @@ export const ExpenseTracker: React.FC = () => {
                 type="text"
                 value={paidBy}
                 onChange={(e) => setPaidBy(e.target.value)}
-                placeholder="যেমন: হাবিবুর রহমান (ক্যাশ)"
+                placeholder="যেমন: মো. খোরশেদ আলম (ক্যাশ)"
                 className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#902A8B] focus:border-transparent outline-none bg-white"
               />
             </div>

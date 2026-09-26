@@ -1,6 +1,6 @@
 {
-  "name": "LSFC-New-App-v1.1",
-  "description": "Imported from GitHub: nuraiyanupur2026-boop/LSFC-New-App",
+  "name": "LSFC Management System",
+  "description": "Land Services Facilitating Center (LSFC) Management System — Local-first business operations platform for authorized land service facilitation centers in Bangladesh.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
