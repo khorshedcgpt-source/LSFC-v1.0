@@ -188,7 +188,7 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
         <div className="p-5 space-y-5 overflow-y-auto font-kalpurush text-slate-800">
           {/* ১. সেবা নির্বাচন (Service Selector Dropdown & Quick Badges) */}
           <div>
-            <label className="block text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
+            <label htmlFor="select-calculator-service" className="block text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
               <Layers className="w-4 h-4 text-[#902A8B]" />
               <span>যাচাইয়ের জন্য সেবা বাছাই করুন:</span>
             </label>
@@ -253,12 +253,13 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-xs font-semibold text-gray-700">মোট পৃষ্ঠা সংখ্যা:</label>
+                        <label htmlFor="input-test-pages" className="text-xs font-semibold text-gray-700">মোট পৃষ্ঠা সংখ্যা:</label>
                         <span className="text-[10px] text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-sm font-semibold">
                           ফ্রি ২০ পৃষ্ঠা
                         </span>
                       </div>
                       <input
+                        id="input-test-pages"
                         type="number"
                         min="1"
                         max="200"
@@ -279,12 +280,13 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
 
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-xs font-semibold text-gray-700">মোট আবেদনকারী:</label>
+                        <label htmlFor="input-test-applicants" className="text-xs font-semibold text-gray-700">মোট আবেদনকারী:</label>
                         <span className="text-[10px] text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-sm font-semibold">
                           ফ্রি ৪ জন
                         </span>
                       </div>
                       <input
+                        id="input-test-applicants"
                         type="number"
                         min="1"
                         max="50"
@@ -351,11 +353,12 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
 
                   {/* ম্যানুয়াল সরকারি ফি ইনপুট (যেমন ভূমি উন্নয়ন করের ক্ষেত্রে) */}
                   <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <label className="text-xs font-semibold text-gray-700">
+                    <label htmlFor="input-test-manual-govt-fee" className="text-xs font-semibold text-gray-700">
                       সরকারি ফি (প্রযোজ্য ক্ষেত্রে লিখুন):
                     </label>
                     <div className="flex items-center gap-1.5">
                       <input
+                        id="input-test-manual-govt-fee"
                         type="number"
                         min="0"
                         value={manualGovtFee}

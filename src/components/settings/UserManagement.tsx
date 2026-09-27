@@ -149,10 +149,11 @@ export const UserManagement: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-user-display-name" className="block text-xs font-bold text-gray-700 mb-1">
                 কর্মীর পূর্ণ নাম <span className="text-red-500">*</span>
               </label>
               <input
+                id="input-user-display-name"
                 type="text"
                 required
                 value={displayName}
@@ -163,10 +164,11 @@ export const UserManagement: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-user-username" className="block text-xs font-bold text-gray-700 mb-1">
                 ইউজারনেম (ইংরেজি, ছোট হাতের) <span className="text-red-500">*</span>
               </label>
               <input
+                id="input-user-username"
                 type="text"
                 required
                 value={username}
@@ -177,10 +179,11 @@ export const UserManagement: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="select-user-role" className="block text-xs font-bold text-gray-700 mb-1">
                 দায়িত্ব / পদমর্যাদা <span className="text-red-500">*</span>
               </label>
               <select
+                id="select-user-role"
                 value={role}
                 onChange={(e) => setRole(e.target.value as UserRole)}
                 className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#902A8B] focus:border-transparent outline-none bg-white"
@@ -192,10 +195,11 @@ export const UserManagement: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-user-password" className="block text-xs font-bold text-gray-700 mb-1">
                 লগইন পাসওয়ার্ড <span className="text-red-500">*</span>
               </label>
               <input
+                id="input-user-password"
                 type="password"
                 required
                 value={password}

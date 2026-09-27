@@ -574,7 +574,7 @@ export const ApplicationForm: React.FC = () => {
               {/* মোবাইল নম্বর */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-gray-700">
+                  <label htmlFor="input-customer-mobile" className="block text-xs font-semibold text-gray-700">
                     মোবাইল নম্বর <span className="text-red-500">*</span>
                   </label>
                   {mobile.trim() && (
@@ -649,7 +649,7 @@ export const ApplicationForm: React.FC = () => {
 
               {/* ভূমি মালিকের নাম */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label htmlFor="input-customer-name" className="block text-xs font-semibold text-gray-700 mb-1">
                   ভূমি মালিকের পূর্ণ নাম <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -695,7 +695,7 @@ export const ApplicationForm: React.FC = () => {
               {/* জাতীয় পরিচয়পত্র (NID) নম্বর */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-gray-700">
+                  <label htmlFor="input-customer-nid" className="block text-xs font-semibold text-gray-700">
                     জাতীয় পরিচয়পত্র (NID) নম্বর
                   </label>
                   {nidNo.trim() && (
@@ -766,7 +766,7 @@ export const ApplicationForm: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label htmlFor="input-customer-address" className="block text-xs font-medium text-gray-700 mb-1">
                   ঠিকানা / গ্রাম / মৌজা
                 </label>
                 <div className="relative">
@@ -847,7 +847,7 @@ export const ApplicationForm: React.FC = () => {
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="input-service-tracking" className="block text-xs font-medium text-gray-700 mb-1">
                     আবেদন / কেস / ট্র্যাকিং নম্বর (ঐচ্ছিক)
                   </label>
                   <input
@@ -861,7 +861,7 @@ export const ApplicationForm: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="input-app-service-quantity" className="block text-xs font-medium text-gray-700 mb-1">
                     {isLdTax ? "হোল্ডিংয়ের সংখ্যা / পরিমাণ" : "আবেদনের সংখ্যা / পরিমাণ"} (টি)
                   </label>
                   <div className="flex items-center">
@@ -874,6 +874,7 @@ export const ApplicationForm: React.FC = () => {
                       -
                     </button>
                     <input
+                      id="input-app-service-quantity"
                       type="number"
                       min="1"
                       max="100"
@@ -904,10 +905,11 @@ export const ApplicationForm: React.FC = () => {
                 {builtInType === "namjari" && (
                   <>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label htmlFor="input-app-pages" className="block text-xs font-medium text-gray-700 mb-1">
                         স্ক্যানকৃত পৃষ্ঠা সংখ্যা (২০ পৃষ্ঠা ফ্রি)
                       </label>
                       <input
+                        id="input-app-pages"
                         type="number"
                         min="1"
                         value={pages}
@@ -922,10 +924,11 @@ export const ApplicationForm: React.FC = () => {
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label htmlFor="input-app-applicants" className="block text-xs font-medium text-gray-700 mb-1">
                         আবেদনকারীর সংখ্যা (৪ জন পর্যন্ত ফ্রি)
                       </label>
                       <input
+                        id="input-app-applicants"
                         type="number"
                         min="1"
                         value={applicants}
@@ -945,10 +948,11 @@ export const ApplicationForm: React.FC = () => {
                 {hasSubServices && (
                   <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label htmlFor="input-app-manual-govt-fee" className="block text-xs font-medium text-gray-700 mb-1">
                         সরকারি ফি (মূল দাবি, টাকা)
                       </label>
                       <input
+                        id="input-app-manual-govt-fee"
                         type="number"
                         min="0"
                         value={manualGovtFee}
@@ -958,9 +962,9 @@ export const ApplicationForm: React.FC = () => {
                       <p className="text-[11px] text-gray-500 mt-0.5">এই টাকার অংকটি সরকারি ফি হিসেবে গণ্য হবে।</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                      <div className="block text-xs font-medium text-gray-700 mb-2">
                         অধীনস্ত সেবা নির্বাচন করুন (একাধিক নির্বাচনযোগ্য)
-                      </label>
+                      </div>
                       <div className="space-y-1.5">
                         {selectedItem!.subServices!.map((sub) => (
                           <label key={sub.id} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
@@ -984,9 +988,9 @@ export const ApplicationForm: React.FC = () => {
 
                 {!hasSubServices && (selectedItem?.subtitles?.length ?? 0) > 0 && (
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
+                    <div className="block text-xs font-medium text-gray-700 mb-2">
                       সাব-টাইটেল নির্বাচন করুন
-                    </label>
+                    </div>
                     <div className="flex flex-wrap gap-3">
                       {selectedItem!.subtitles!.map((opt, idx) => (
                         <label
@@ -1170,7 +1174,7 @@ export const ApplicationForm: React.FC = () => {
             <div className="bg-purple-50/80 p-3.5 rounded-xl border-2 border-purple-200 mb-4 space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5 gap-2">
-                  <label className="text-xs font-bold text-gray-800 whitespace-nowrap">
+                  <label htmlFor="input-app-custom-paid-amount" className="text-xs font-bold text-gray-800 whitespace-nowrap">
                     ভূমি মালিক কর্তৃক পরিশোধিত টাকা (৳):
                   </label>
                   {customPaidAmount !== "" && (
@@ -1187,6 +1191,7 @@ export const ApplicationForm: React.FC = () => {
                 </div>
                 <div className="relative flex items-center">
                   <input
+                    id="input-app-custom-paid-amount"
                     type="number"
                     step="any"
                     min="0"
@@ -1273,8 +1278,9 @@ export const ApplicationForm: React.FC = () => {
 
             {/* Payment Method Selector */}
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-1">পরিশোধের মাধ্যম</label>
+              <label htmlFor="select-app-payment-method" className="block text-xs font-medium text-gray-700 mb-1">পরিশোধের মাধ্যম</label>
               <select
+                id="select-app-payment-method"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"

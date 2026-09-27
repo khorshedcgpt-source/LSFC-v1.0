@@ -141,8 +141,9 @@ export const OrganizationSettings: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block font-medium text-gray-700 mb-1">অনুমোদনকারী কর্তৃপক্ষ</label>
+              <label htmlFor="input-org-licensing-authority" className="block font-medium text-gray-700 mb-1">অনুমোদনকারী কর্তৃপক্ষ</label>
               <input
+                id="input-org-licensing-authority"
                 type="text"
                 value={formData.licensingAuthority}
                 onChange={(e) => handleInputChange("licensingAuthority", e.target.value)}
@@ -151,8 +152,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">প্রতিষ্ঠানের নাম (বাংলা)</label>
+              <label htmlFor="input-org-name-bn" className="block font-medium text-gray-700 mb-1">প্রতিষ্ঠানের নাম (বাংলা)</label>
               <input
+                id="input-org-name-bn"
                 type="text"
                 value={formData.orgNameBn}
                 onChange={(e) => handleInputChange("orgNameBn", e.target.value)}
@@ -161,8 +163,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">প্রতিষ্ঠানের নাম (ইংরেজি)</label>
+              <label htmlFor="input-org-name-en" className="block font-medium text-gray-700 mb-1">প্রতিষ্ঠানের নাম (ইংরেজি)</label>
               <input
+                id="input-org-name-en"
                 type="text"
                 value={formData.orgNameEn}
                 onChange={(e) => handleInputChange("orgNameEn", e.target.value)}
@@ -171,7 +174,7 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">ট্যাগলাইন / নীতিবাক্য (বাংলা)</label>
+              <label htmlFor="input-tagline-bn" className="block font-medium text-gray-700 mb-1">ট্যাগলাইন / নীতিবাক্য (বাংলা)</label>
               <input
                 type="text"
                 id="input-tagline-bn"
@@ -184,8 +187,9 @@ export const OrganizationSettings: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block font-medium text-gray-700 mb-1">লাইসেন্স নম্বর</label>
+                <label htmlFor="input-org-license-no" className="block font-medium text-gray-700 mb-1">লাইসেন্স নম্বর</label>
                 <input
+                  id="input-org-license-no"
                   type="text"
                   value={formData.licenseNo}
                   onChange={(e) => handleInputChange("licenseNo", e.target.value)}
@@ -193,8 +197,9 @@ export const OrganizationSettings: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block font-medium text-gray-700 mb-1">পরিচালনাকারী প্রতিষ্ঠান</label>
+                <label htmlFor="input-org-partner-org" className="block font-medium text-gray-700 mb-1">পরিচালনাকারী প্রতিষ্ঠান</label>
                 <input
+                  id="input-org-partner-org"
                   type="text"
                   value={formData.partnerOrg}
                   onChange={(e) => handleInputChange("partnerOrg", e.target.value)}
@@ -221,9 +226,9 @@ export const OrganizationSettings: React.FC = () => {
             <div className="p-4 border border-gray-200 rounded-xl bg-gray-50/60 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-bold text-gray-800 flex items-center gap-1.5">
+                  <div className="font-bold text-gray-800 flex items-center gap-1.5">
                     <Building2 className="w-3.5 h-3.5 text-[#902A8B]" /> ১. প্রতিষ্ঠানের লোগো
-                  </label>
+                  </div>
                   {formData.logoUrl && (
                     <button
                       type="button"
@@ -280,9 +285,9 @@ export const OrganizationSettings: React.FC = () => {
             <div className="p-4 border border-gray-200 rounded-xl bg-gray-50/60 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-bold text-gray-800 flex items-center gap-1.5">
+                  <div className="font-bold text-gray-800 flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5 text-[#37A448]" /> ২. ভূমি মন্ত্রণালয়ের লোগো
-                  </label>
+                  </div>
                   {formData.ministryLogoUrl && (
                     <button
                       type="button"
@@ -339,9 +344,9 @@ export const OrganizationSettings: React.FC = () => {
             <div className="p-4 border border-gray-200 rounded-xl bg-gray-50/60 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-bold text-gray-800 flex items-center gap-1.5">
+                  <div className="font-bold text-gray-800 flex items-center gap-1.5">
                     <PenTool className="w-3.5 h-3.5 text-blue-600" /> ৩. কর্তৃপক্ষের স্বাক্ষর
-                  </label>
+                  </div>
                   {formData.inchargeSignatureUrl && (
                     <button
                       type="button"
@@ -404,8 +409,9 @@ export const OrganizationSettings: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div>
-              <label className="block font-medium text-gray-700 mb-1">প্রধান হেল্পলাইন মোবাইল</label>
+              <label htmlFor="input-org-mobile" className="block font-medium text-gray-700 mb-1">প্রধান হেল্পলাইন মোবাইল</label>
               <input
+                id="input-org-mobile"
                 type="text"
                 value={formData.mobile}
                 onChange={(e) => handleInputChange("mobile", e.target.value)}
@@ -414,8 +420,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">বিকল্প মোবাইল (ঐচ্ছিক)</label>
+              <label htmlFor="input-org-alt-phone" className="block font-medium text-gray-700 mb-1">বিকল্প মোবাইল (ঐচ্ছিক)</label>
               <input
+                id="input-org-alt-phone"
                 type="text"
                 value={formData.alternativePhone}
                 onChange={(e) => handleInputChange("alternativePhone", e.target.value)}
@@ -424,8 +431,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">দায়িত্বপ্রাপ্ত পরিচালক / ব্যক্তি</label>
+              <label htmlFor="input-org-contact-person" className="block font-medium text-gray-700 mb-1">দায়িত্বপ্রাপ্ত পরিচালক / ব্যক্তি</label>
               <input
+                id="input-org-contact-person"
                 type="text"
                 value={formData.contactPerson}
                 onChange={(e) => handleInputChange("contactPerson", e.target.value)}
@@ -434,8 +442,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">অফিসিয়াল ইমেইল</label>
+              <label htmlFor="input-org-email" className="block font-medium text-gray-700 mb-1">অফিসিয়াল ইমেইল</label>
               <input
+                id="input-org-email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange("email", e.target.value)}
@@ -444,8 +453,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">ওয়েবসাইট ঠিকানা</label>
+              <label htmlFor="input-org-website" className="block font-medium text-gray-700 mb-1">ওয়েবসাইট ঠিকানা</label>
               <input
+                id="input-org-website"
                 type="text"
                 value={formData.website}
                 onChange={(e) => handleInputChange("website", e.target.value)}
@@ -454,8 +464,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">ফেসবুক / সামাজিক যোগাযোগ</label>
+              <label htmlFor="input-org-social-media" className="block font-medium text-gray-700 mb-1">ফেসবুক / সামাজিক যোগাযোগ</label>
               <input
+                id="input-org-social-media"
                 type="text"
                 value={formData.socialMedia}
                 onChange={(e) => handleInputChange("socialMedia", e.target.value)}
@@ -464,8 +475,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div className="md:col-span-3 p-3 bg-blue-50/50 border border-blue-200 rounded-lg">
-              <label className="block text-[11px] font-bold text-blue-900 mb-1">প্রাথমিক পাসওয়ার্ড (নাগরিক পোর্টাল)</label>
+              <label htmlFor="input-org-citizen-portal-password" className="block text-[11px] font-bold text-blue-900 mb-1">প্রাথমিক পাসওয়ার্ড (নাগরিক পোর্টাল)</label>
               <input
+                id="input-org-citizen-portal-password"
                 type="text"
                 value={formData.citizenPortalPassword}
                 onChange={(e) => handleInputChange("citizenPortalPassword", e.target.value)}
@@ -487,8 +499,9 @@ export const OrganizationSettings: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs mb-4">
             <div>
-              <label className="block font-medium text-gray-700 mb-1">পূর্ণাঙ্গ ঠিকানা (বাংলা)</label>
+              <label htmlFor="input-org-address-bn" className="block font-medium text-gray-700 mb-1">পূর্ণাঙ্গ ঠিকানা (বাংলা)</label>
               <input
+                id="input-org-address-bn"
                 type="text"
                 value={formData.addressBn}
                 onChange={(e) => handleInputChange("addressBn", e.target.value)}
@@ -497,7 +510,7 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">জেলা, উপজেলা ও ইউনিয়ন</label>
+              <div className="block font-medium text-gray-700 mb-1">জেলা, উপজেলা ও ইউনিয়ন</div>
               <div className="grid grid-cols-3 gap-2">
                 <input
                   type="text"
@@ -523,15 +536,16 @@ export const OrganizationSettings: React.FC = () => {
               </div>
             </div>
             <div className="md:col-span-2 p-3 bg-blue-50/50 border border-blue-200 rounded-lg">
-              <label className="block text-[11px] font-bold text-blue-900 mb-2">
+              <div className="block text-[11px] font-bold text-blue-900 mb-2">
                 🏛️ সরকারি জিও-কোড (ভূমি মালিক নম্বর তৈরি করতে ব্যবহৃত)
-              </label>
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                  <label htmlFor="input-org-geo-division-code" className="block text-[11px] font-medium text-gray-700 mb-1">
                     বিভাগ (২ ডিজিট)
                   </label>
                   <input
+                    id="input-org-geo-division-code"
                     type="text"
                     maxLength={2}
                     placeholder="55"
@@ -541,10 +555,11 @@ export const OrganizationSettings: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                  <label htmlFor="input-org-geo-district-code" className="block text-[11px] font-medium text-gray-700 mb-1">
                     জেলা (২ ডিজিট)
                   </label>
                   <input
+                    id="input-org-geo-district-code"
                     type="text"
                     maxLength={2}
                     placeholder="49"
@@ -554,10 +569,11 @@ export const OrganizationSettings: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                  <label htmlFor="input-org-geo-upazila-code" className="block text-[11px] font-medium text-gray-700 mb-1">
                     উপজেলা (২ ডিজিট)
                   </label>
                   <input
+                    id="input-org-geo-upazila-code"
                     type="text"
                     maxLength={2}
                     placeholder="52"
@@ -580,8 +596,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">অফিস সময়</label>
+              <label htmlFor="input-org-office-hours-1" className="block font-medium text-gray-700 mb-1">অফিস সময়</label>
               <input
+                id="input-org-office-hours-1"
                 type="text"
                 value={formData.officeHours}
                 onChange={(e) => handleInputChange("officeHours", e.target.value)}
@@ -589,8 +606,9 @@ export const OrganizationSettings: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block font-medium text-gray-700 mb-1">অফিস সময়</label>
+              <label htmlFor="input-org-office-hours-2" className="block font-medium text-gray-700 mb-1">অফিস সময়</label>
               <input
+                id="input-org-office-hours-2"
                 type="text"
                 value={formData.officeHours}
                 onChange={(e) => handleInputChange("officeHours", e.target.value)}
@@ -599,8 +617,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-medium text-gray-700 mb-1">সাপ্তাহিক ছুটি</label>
+              <label htmlFor="input-org-weekly-holiday" className="block font-medium text-gray-700 mb-1">সাপ্তাহিক ছুটি</label>
               <input
+                id="input-org-weekly-holiday"
                 type="text"
                 value={formData.weeklyHoliday}
                 onChange={(e) => handleInputChange("weeklyHoliday", e.target.value)}

@@ -319,7 +319,7 @@ export const ServiceFeeSettings: React.FC = () => {
                 >
                   <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs items-end">
                     <div className="md:col-span-2">
-                      <label className="block font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                      <label htmlFor={`input-svc-name-${service.id}`} className="block font-medium text-gray-700 mb-1 flex items-center gap-1.5">
                         সেবার নাম
                         {isBuiltIn && (
                           <span className="text-[10px] bg-purple-100 text-[#902A8B] px-1.5 py-0.5 rounded-full font-semibold">
@@ -328,6 +328,7 @@ export const ServiceFeeSettings: React.FC = () => {
                         )}
                       </label>
                       <input
+                        id={`input-svc-name-${service.id}`}
                         type="text"
                         value={service.serviceName}
                         onChange={(e) => handleServiceChange(service.id, "serviceName", e.target.value)}
@@ -342,8 +343,9 @@ export const ServiceFeeSettings: React.FC = () => {
                       )}
                     </div>
                     <div>
-                      <label className="block font-medium text-gray-700 mb-1">সরকারি ফি</label>
+                      <label htmlFor={`input-svc-govt-fee-${service.id}`} className="block font-medium text-gray-700 mb-1">সরকারি ফি</label>
                       <input
+                        id={`input-svc-govt-fee-${service.id}`}
                         type="number"
                         disabled={hasSubServices}
                         value={service.govtFee}
@@ -359,8 +361,9 @@ export const ServiceFeeSettings: React.FC = () => {
                       )}
                     </div>
                     <div>
-                      <label className="block font-medium text-gray-700 mb-1">গেটওয়ে ফি (%)</label>
+                      <label htmlFor={`input-svc-gateway-fee-${service.id}`} className="block font-medium text-gray-700 mb-1">গেটওয়ে ফি (%)</label>
                       <input
+                        id={`input-svc-gateway-fee-${service.id}`}
                         type="number"
                         min={0}
                         step={0.1}
@@ -373,8 +376,9 @@ export const ServiceFeeSettings: React.FC = () => {
                       <p className="text-[10px] text-gray-400 mt-0.5">সরকারি ফি-র শতাংশ (যেমন: ১ = ১%)</p>
                     </div>
                     <div>
-                      <label className="block font-medium text-gray-700 mb-1">ডাক মাশুল</label>
+                      <label htmlFor={`input-svc-postal-fee-${service.id}`} className="block font-medium text-gray-700 mb-1">ডাক মাশুল</label>
                       <input
+                        id={`input-svc-postal-fee-${service.id}`}
                         type="number"
                         value={service.postalFee}
                         onChange={(e) =>
@@ -384,8 +388,9 @@ export const ServiceFeeSettings: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block font-medium text-gray-700 mb-1">কেন্দ্র ফি</label>
+                      <label htmlFor={`input-svc-center-fee-${service.id}`} className="block font-medium text-gray-700 mb-1">কেন্দ্র ফি</label>
                       <input
+                        id={`input-svc-center-fee-${service.id}`}
                         type="number"
                         disabled={hasSubServices && !isFlatMode}
                         value={service.centerFee}
@@ -417,7 +422,7 @@ export const ServiceFeeSettings: React.FC = () => {
                   {/* সাব-টাইটেল প্রিসেট সমূহ */}
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="flex items-center justify-between mb-2">
-                      <label className="font-medium text-gray-700">সাব-টাইটেল প্রিসেট (ঐচ্ছিক, একাধিক যোগ করা যায়)</label>
+                      <div className="font-medium text-gray-700">সাব-টাইটেল প্রিসেট (ঐচ্ছিক, একাধিক যোগ করা যায়)</div>
                       <button
                         type="button"
                         onClick={() => handleAddSubtitle(service.id)}
@@ -465,9 +470,9 @@ export const ServiceFeeSettings: React.FC = () => {
                   {/* অধীনস্ত সেবাসমূহ */}
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="flex items-center justify-between mb-2">
-                      <label className="font-medium text-gray-700">
+                      <div className="font-medium text-gray-700">
                         অধীনস্ত সেবাসমূহ (ঐচ্ছিক — একাধিক নির্বাচনযোগ্য)
-                      </label>
+                      </div>
                       <button
                         type="button"
                         onClick={() => handleAddSubService(service.id)}
@@ -522,9 +527,9 @@ export const ServiceFeeSettings: React.FC = () => {
                     {/* ফি মোড — শুধু subServices থাকলে */}
                     {hasSubServices && (
                       <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                        <label className="block font-medium text-gray-700 mb-2 text-[11px]">
+                        <div className="block font-medium text-gray-700 mb-2 text-[11px]">
                           ফি গণনার মোড
-                        </label>
+                        </div>
                         <div className="flex flex-wrap items-center gap-3 text-xs">
                           <label
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border cursor-pointer transition ${

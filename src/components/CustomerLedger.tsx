@@ -188,12 +188,13 @@ export const CustomerLedger: React.FC = () => {
         {/* Left Column: Customer Directory / Search */}
         <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-5 flex flex-col h-[750px]">
           <div className="mb-3">
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+            <label htmlFor="input-ledger-search" className="block text-xs font-semibold text-gray-700 mb-1.5">
               ভূমি মালিক অনুসন্ধান (নাম / মোবাইল / এনআইডি)
             </label>
             <div className="relative">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
               <input
+                id="input-ledger-search"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -589,10 +590,11 @@ export const CustomerLedger: React.FC = () => {
               {/* Invoice Switcher (if customer has multiple due invoices) */}
               {dueInvoices.length > 1 && (
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <label htmlFor="select-ledger-due-invoice" className="block text-xs font-semibold text-gray-700 mb-1">
                     বকেয়া ইনভয়েস নির্বাচন করুন:
                   </label>
                   <select
+                    id="select-ledger-due-invoice"
                     value={collectingInvoice.invoiceNo}
                     onChange={(e) => {
                       const selected = dueInvoices.find((i) => i.invoiceNo === e.target.value);
@@ -648,11 +650,12 @@ export const CustomerLedger: React.FC = () => {
 
               {/* Amount Input */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label htmlFor="input-ledger-collect-amount" className="block text-xs font-bold text-gray-700 mb-1">
                   এখন জমার পরিমাণ (৳):
                 </label>
                 <div className="relative">
                   <input
+                    id="input-ledger-collect-amount"
                     type="number"
                     step="any"
                     min="1"
@@ -675,10 +678,11 @@ export const CustomerLedger: React.FC = () => {
               {/* Date Input */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <label htmlFor="input-ledger-payment-date" className="block text-xs font-semibold text-gray-700 mb-1">
                     আদায়ের তারিখ:
                   </label>
                   <input
+                    id="input-ledger-payment-date"
                     type="date"
                     value={paymentDate}
                     onChange={(e) => setPaymentDate(e.target.value)}
@@ -688,10 +692,11 @@ export const CustomerLedger: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <label htmlFor="input-ledger-received-by" className="block text-xs font-semibold text-gray-700 mb-1">
                     মাধ্যম / গ্রহণকারী:
                   </label>
                   <input
+                    id="input-ledger-received-by"
                     type="text"
                     value={receivedByInput}
                     onChange={(e) => setReceivedByInput(e.target.value)}
@@ -702,10 +707,11 @@ export const CustomerLedger: React.FC = () => {
 
               {/* Note Input */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label htmlFor="input-ledger-note" className="block text-xs font-semibold text-gray-700 mb-1">
                   মন্তব্য / নোট (ঐচ্ছিক):
                 </label>
                 <input
+                  id="input-ledger-note"
                   type="text"
                   placeholder="যেমন: অবশিষ্ট কিস্তি পরিশোধ"
                   value={paymentNote}

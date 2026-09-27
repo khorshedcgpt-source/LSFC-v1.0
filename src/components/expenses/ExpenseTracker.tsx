@@ -306,10 +306,11 @@ export const ExpenseTracker: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-expense-title" className="block text-xs font-bold text-gray-700 mb-1">
                 খরচের বিবরণ <span className="text-red-500">*</span>
               </label>
               <input
+                id="input-expense-title"
                 type="text"
                 required
                 value={title}
@@ -320,10 +321,11 @@ export const ExpenseTracker: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-expense-amount" className="block text-xs font-bold text-gray-700 mb-1">
                 টাকার পরিমাণ (৳) <span className="text-red-500">*</span>
               </label>
               <input
+                id="input-expense-amount"
                 type="number"
                 step="any"
                 required
@@ -335,10 +337,11 @@ export const ExpenseTracker: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="select-expense-category" className="block text-xs font-bold text-gray-700 mb-1">
                 খরচের খাত / ক্যাটাগরি <span className="text-red-500">*</span>
               </label>
               <select
+                id="select-expense-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
                 className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#902A8B] focus:border-transparent outline-none bg-white"
@@ -352,10 +355,11 @@ export const ExpenseTracker: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-expense-date" className="block text-xs font-bold text-gray-700 mb-1">
                 খরচের তারিখ <span className="text-red-500">*</span>
               </label>
               <input
+                id="input-expense-date"
                 type="date"
                 required
                 value={date}
@@ -365,10 +369,11 @@ export const ExpenseTracker: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-expense-voucher-number" className="block text-xs font-bold text-gray-700 mb-1">
                 ভাউচার নম্বর <span className="text-red-500">*</span>
               </label>
               <input
+                id="input-expense-voucher-number"
                 type="text"
                 required
                 value={voucherNumber}
@@ -379,10 +384,11 @@ export const ExpenseTracker: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-expense-voucher-issuer" className="block text-xs font-bold text-gray-700 mb-1">
                 ভাউচার প্রদানকারী প্রতিষ্ঠান <span className="text-red-500">*</span>
               </label>
               <input
+                id="input-expense-voucher-issuer"
                 type="text"
                 required
                 value={voucherIssuerName}
@@ -393,10 +399,11 @@ export const ExpenseTracker: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-expense-paid-by" className="block text-xs font-bold text-gray-700 mb-1">
                 পরিশোধকারী (ঐচ্ছিক)
               </label>
               <input
+                id="input-expense-paid-by"
                 type="text"
                 value={paidBy}
                 onChange={(e) => setPaidBy(e.target.value)}
@@ -406,10 +413,11 @@ export const ExpenseTracker: React.FC = () => {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="input-expense-notes" className="block text-xs font-bold text-gray-700 mb-1">
                 মন্তব্য / নোট (ঐচ্ছিক)
               </label>
               <input
+                id="input-expense-notes"
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -542,8 +550,9 @@ export const ExpenseTracker: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-500 font-medium">খাত নির্বাচন:</label>
+          <label htmlFor="select-expense-filter-category" className="text-xs text-gray-500 font-medium">খাত নির্বাচন:</label>
           <select
+            id="select-expense-filter-category"
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
             className="px-2.5 py-1 text-xs border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-[#902A8B] focus:border-transparent outline-none"
@@ -827,10 +836,11 @@ export const ExpenseTracker: React.FC = () => {
               </p>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label htmlFor="textarea-expense-rejection-reason" className="block text-xs font-bold text-gray-700 mb-1">
                   বাতিলের কারণ (ঐচ্ছিক / মন্তব্য):
                 </label>
                 <textarea
+                  id="textarea-expense-rejection-reason"
                   rows={2}
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}

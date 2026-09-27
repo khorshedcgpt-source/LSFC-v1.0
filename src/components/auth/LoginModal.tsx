@@ -133,12 +133,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label htmlFor="input-login-display-name" className="block text-xs font-bold text-gray-700 mb-1">
                   পূর্ণ নাম / পদবী
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
                   <input
+                    id="input-login-display-name"
                     type="text"
                     required
                     value={displayName}
@@ -150,10 +151,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label htmlFor="select-login-role" className="block text-xs font-bold text-gray-700 mb-1">
                   দায়িত্ব / পদমর্যাদা
                 </label>
                 <select
+                  id="select-login-role"
                   value={role}
                   onChange={(e) => setRole(e.target.value as UserRole)}
                   className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#902A8B] focus:border-transparent outline-none bg-white"
@@ -166,12 +168,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           )}
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
+            <label htmlFor="input-login-username" className="block text-xs font-bold text-gray-700 mb-1">
               ইউজারনেম
             </label>
             <div className="relative">
               <User className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
               <input
+                id="input-login-username"
                 type="text"
                 required
                 value={username}
@@ -183,12 +186,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
+            <label htmlFor="input-login-password" className="block text-xs font-bold text-gray-700 mb-1">
               পাসওয়ার্ড
             </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
               <input
+                id="input-login-password"
                 type="password"
                 required
                 value={password}
