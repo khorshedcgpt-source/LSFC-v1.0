@@ -39,7 +39,8 @@ export const SERVICE_DEFINITIONS: Record<
     code: "namjari",
     nameBn: "ই-নামজারি আবেদন",
     nameEn: "e-Namjari (Mutation)",
-    descriptionBn: "রেকর্ড সংশোধন ও জমাভাগ আবেদন (২০ পৃষ্ঠা স্ক্যান ও ৪ আবেদনকারী অন্তর্ভুক্ত)",
+    descriptionBn:
+      "রেকর্ড সংশোধন ও জমাভাগ আবেদন (২০ পৃষ্ঠা স্ক্যান ও ৪ আবেদনকারী অন্তর্ভুক্ত)",
     defaultGovtFee: 70,
     defaultCenterFee: 270,
   },
@@ -51,7 +52,7 @@ export function calculateServiceLine(input: ServiceInput): CalculatedServiceLine
   let centerFee = 0;
   let subText = "";
   const def = SERVICE_DEFINITIONS[input.serviceType] || SERVICE_DEFINITIONS.namjari;
-  let serviceName = def.nameBn;
+  const serviceName = def.nameBn;
 
   const qty = Math.max(1, Math.round(Number(input.quantity) || 1));
 
@@ -70,19 +71,30 @@ export function calculateServiceLine(input: ServiceInput): CalculatedServiceLine
         breakdownParts.push(`${toBanglaNumber(qty)}টি আবেদন`);
       }
       if (pages > 20) {
-        breakdownParts.push(`অতিরিক্ত পৃষ্ঠা: ${toBanglaNumber(pages - 20)}টি (৳${toBanglaNumber(extraPages)})`);
+        breakdownParts.push(
+          `অতিরিক্ত পৃষ্ঠা: ${toBanglaNumber(pages - 20)}টি (৳${toBanglaNumber(extraPages)})`
+        );
       }
       if (applicants > 4) {
-        breakdownParts.push(`অতিরিক্ত ব্যক্তি: ${toBanglaNumber(applicants - 4)}জন (৳${toBanglaNumber(extraApplicants)})`);
+        breakdownParts.push(
+          `অতিরিক্ত ব্যক্তি: ${toBanglaNumber(applicants - 4)}জন (৳${toBanglaNumber(extraApplicants)})`
+        );
       }
-      subText = breakdownParts.length > 0
-        ? `(${breakdownParts.join(", ")})`
-        : "(২০ পৃষ্ঠা স্ক্যান ও ৪ আবেদনকারী অন্তর্ভুক্ত)";
+      subText =
+        breakdownParts.length > 0
+          ? `(${breakdownParts.join(", ")})`
+          : "(২০ পৃষ্ঠা স্ক্যান ও ৪ আবেদনকারী অন্তর্ভুক্ত)";
+      break;
+    }
+    default: {
+      // Defensive: unknown serviceType — return zero-fee line rather than
+      // silently falling through to the namjari defaults.
+      console.warn(`[serviceCalculator] Unknown serviceType: ${input.serviceType}`);
       break;
     }
   }
 
-  // গেটওয়ে ফি: সরকারি ফি + ডাক মাশুল — এই দুটোর সম্মিলিত অঙ্কের উপর ১% (সর্বক্ষেত্রে প্রযোজ্য নিয়ম)
+  // গেটওয়ে ফি: সরকারি ফি + ডাক মাশুল — এই দুটোর সম্মিলিত অঙ্কের উপর ১%
   const gatewayFee = Math.round((govtFee + postalFee) * 0.01 * 100) / 100;
   const lineTotal = Math.round((govtFee + gatewayFee + postalFee + centerFee) * 100) / 100;
 
@@ -119,8 +131,9 @@ export function calculateCustomServiceLine(
       ? Math.max(0, Number(postalFeeOverride) || 0)
       : Math.max(0, Number(item.postalFee) || 0);
   const postalFee = basePostal * qty;
-  // গেটওয়ে ফি: (সরকারি ফি + ডাক মাশুল)-এর উপর হার প্রয়োগ হয় (সর্বক্ষেত্রে প্রযোজ্য নিয়ম)
-  const gatewayFee = Math.round((govtFee + postalFee) * (gatewayPercent / 100) * 100) / 100;
+  // গেটওয়ে ফি: (সরকারি ফি + ডাক মাশুল)-এর উপর হার প্রয়োগ হয়
+  const gatewayFee =
+    Math.round((govtFee + postalFee) * (gatewayPercent / 100) * 100) / 100;
   const baseCenter = Math.max(0, Number(item.centerFee) || 0);
   const centerFee = baseCenter * qty;
   const lineTotal = Math.round((govtFee + gatewayFee + postalFee + centerFee) * 100) / 100;
@@ -174,8 +187,9 @@ export function calculateSubServiceLine(
   const govtFee = Math.max(0, Number(manualGovtFee) || 0);
   const gatewayPercent = Math.max(0, Number(item.gatewayFee) || 0);
   const postalFee = Math.max(0, Number(item.postalFee) || 0) * qty;
-  // গেটওয়ে ফি: (সরকারি ফি + ডাক মাশুল)-এর উপর হার প্রয়োগ হয় (সর্বক্ষেত্রে প্রযোজ্য নিয়ম)
-  const gatewayFee = Math.round((govtFee + postalFee) * (gatewayPercent / 100) * 100) / 100;
+  // গেটওয়ে ফি: (সরকারি ফি + ডাক মাশুল)-এর উপর হার প্রয়োগ হয়
+  const gatewayFee =
+    Math.round((govtFee + postalFee) * (gatewayPercent / 100) * 100) / 100;
 
   const allSubServices = item.subServices || [];
   const selected = allSubServices.filter((s) => selectedSubServiceIds.includes(s.id));
@@ -193,7 +207,10 @@ export function calculateSubServiceLine(
 
   const key = buildSubServiceCombinationKey(selected.map((s) => s.id));
   const override = item.combinationOverrides?.[key];
-  const subText = selected.length > 0 ? override || buildDefaultCombinationLabel(selected.map((s) => s.label)) : undefined;
+  const subText =
+    selected.length > 0
+      ? override || buildDefaultCombinationLabel(selected.map((s) => s.label))
+      : undefined;
 
   const lineTotal = Math.round((govtFee + gatewayFee + postalFee + centerFee) * 100) / 100;
 
@@ -209,11 +226,21 @@ export function calculateSubServiceLine(
     quantity: qty > 1 ? qty : undefined,
   };
 }
+
 /**
  * Ensures all invoice subtitles are wrapped in brackets `(...)`
  * and monetary figures are ONLY shown for Namjari (Mutation) services.
+ *
+ * All regexes here are intentionally written as linear-time patterns
+ * (flat character classes, no nested/ambiguous quantifiers) to avoid
+ * SonarQube S5843 "super-linear backtracking". The previous
+ * `\s*\(?...\s*[...\s...]+...\)?` forms were super-linear on
+ * pathological inputs.
  */
-export function formatInvoiceSubtitle(serviceName: string, rawSub?: string): string | undefined {
+export function formatInvoiceSubtitle(
+  serviceName: string,
+  rawSub?: string
+): string | undefined {
   if (!rawSub) return undefined;
   let s = rawSub.trim();
   if (!s) return undefined;
@@ -229,18 +256,23 @@ export function formatInvoiceSubtitle(serviceName: string, rawSub?: string): str
   if (isNamjari) {
     s = toBanglaNumber(s);
   } else {
-    // Strip monetary figures from non-namjari services
+    // Strip monetary figures from non-namjari services.
+    // Each pattern uses a single optional "(" and ")" plus a flat character
+    // class — no ambiguity, so no exponential backtracking.
     s = s
-      .replace(/\s*\(?ডাক\s*মাশুল\s*[৳Tk.\d০-৯\s/-]+\)?/gi, "")
-      .replace(/\s*\(?ডাক\s*ফি\s*[৳Tk.\d০-৯\s]+অন্তর্ভুক্ত\)?/gi, "")
-      .replace(/\s*\(?[৳Tk.]\s*[\d০-৯,.]+\)?/gi, "")
-      .replace(/\s*\(?[\d০-৯,.]+\s*টাকা\)?/gi, "")
+      .replace(/\(?\s*ডাক\s*মাশুল[\s৳Tk.\d০-৯/-]*\)?/gi, "")
+      .replace(/\(?\s*ডাক\s*ফি[\s৳Tk.\d০-৯]*অন্তর্ভুক্ত\s*\)?/gi, "")
+      .replace(/\(?\s*[৳Tk.][\d০-৯,.\s]*\)?/gi, "")
+      .replace(/\(?\s*[\d০-৯,.\s]+টাকা\s*\)?/gi, "")
       .trim();
   }
 
   // Remove all nested or mismatched brackets to prevent ((...))
   s = s.replace(/^\(+/, "").replace(/\)+$/, "").trim();
-  s = s.replace(/\)\s*–\s*/g, " – ").replace(/\)\s*,\s*/g, ", ").replace(/\)\s+/g, " – ");
+  s = s
+    .replace(/\)\s*–\s*/g, " – ")
+    .replace(/\)\s*,\s*/g, ", ")
+    .replace(/\)\s+/g, " – ");
   s = s.replace(/\(/g, "").replace(/\)/g, "").trim();
 
   // Normalize multi-spaces

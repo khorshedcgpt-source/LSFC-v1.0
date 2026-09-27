@@ -82,7 +82,7 @@ function convertIntegerToBanglaWords(n: number): string {
 }
 
 export function numberToBanglaWords(num: number | undefined | null): string {
-  if (num === null || num === undefined || isNaN(Number(num)) || Number(num) === 0) {
+  if (num === null || num === undefined || Number.isNaN(Number(num)) || Number(num) === 0) {
     return "শূন্য টাকা মাত্র";
   }
 
