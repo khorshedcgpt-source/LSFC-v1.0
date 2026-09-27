@@ -1,5 +1,6 @@
 import { toBanglaNumber } from "./bengaliNumbers";
 import type { ServiceSettingItem } from "./institutionSettings";
+import { addMoney, multiplyMoney } from "./money";
 
 export type ServiceType = "namjari";
 
@@ -101,8 +102,8 @@ export function calculateServiceLine(input: ServiceInput): CalculatedServiceLine
   }
 
   // গেটওয়ে ফি: সরকারি ফি + ডাক মাশুল — এই দুটোর সম্মিলিত অঙ্কের উপর ১%
-  const gatewayFee = Math.round((govtFee + postalFee) * 0.01 * 100) / 100;
-  const lineTotal = Math.round((govtFee + gatewayFee + postalFee + centerFee) * 100) / 100;
+  const gatewayFee = multiplyMoney(addMoney(govtFee, postalFee), 0.01);
+  const lineTotal = addMoney(govtFee, gatewayFee, postalFee, centerFee);
 
   return {
     serviceName: input.customTitle || serviceName,
@@ -130,19 +131,19 @@ export function calculateCustomServiceLine(
 ): CalculatedServiceLine {
   const qty = Math.max(1, Math.round(Number(quantity) || 1));
   const baseGovt = Math.max(0, Number(item.govtFee) || 0);
-  const govtFee = baseGovt * qty;
+  const govtFee = multiplyMoney(baseGovt, qty);
   const gatewayPercent = Math.max(0, Number(item.gatewayFee) || 0);
   const basePostal =
     postalFeeOverride !== undefined
       ? Math.max(0, Number(postalFeeOverride) || 0)
       : Math.max(0, Number(item.postalFee) || 0);
-  const postalFee = basePostal * qty;
+  const postalFee = multiplyMoney(basePostal, qty);
   // গেটওয়ে ফি: (সরকারি ফি + ডাক মাশুল)-এর উপর হার প্রয়োগ হয়
   const gatewayFee =
-    Math.round((govtFee + postalFee) * (gatewayPercent / 100) * 100) / 100;
+    multiplyMoney(addMoney(govtFee, postalFee), gatewayPercent / 100);
   const baseCenter = Math.max(0, Number(item.centerFee) || 0);
-  const centerFee = baseCenter * qty;
-  const lineTotal = Math.round((govtFee + gatewayFee + postalFee + centerFee) * 100) / 100;
+  const centerFee = multiplyMoney(baseCenter, qty);
+  const lineTotal = addMoney(govtFee, gatewayFee, postalFee, centerFee);
 
   return {
     serviceName: item.serviceName,
@@ -191,10 +192,10 @@ export function calculateSubServiceLine(
   const qty = Math.max(1, Math.round(Number(quantity) || 1));
   const govtFee = Math.max(0, Number(manualGovtFee) || 0);
   const gatewayPercent = Math.max(0, Number(item.gatewayFee) || 0);
-  const postalFee = Math.max(0, Number(item.postalFee) || 0) * qty;
+  const postalFee = multiplyMoney(Math.max(0, Number(item.postalFee) || 0), qty);
   // গেটওয়ে ফি: (সরকারি ফি + ডাক মাশুল)-এর উপর হার প্রয়োগ হয়
   const gatewayFee =
-    Math.round((govtFee + postalFee) * (gatewayPercent / 100) * 100) / 100;
+    multiplyMoney(addMoney(govtFee, postalFee), gatewayPercent / 100);
 
   const allSubServices = item.subServices || [];
   const selected = allSubServices.filter((s) => selectedSubServiceIds.includes(s.id));
@@ -206,9 +207,9 @@ export function calculateSubServiceLine(
   if (item.subServiceFeeMode === "flat") {
     baseCenterFee = Math.max(0, Number(item.centerFee) || 0);
   } else {
-    baseCenterFee = selected.reduce((sum, s) => sum + (Number(s.fee) || 0), 0);
+    baseCenterFee = selected.reduce((sum, s) => addMoney(sum, Number(s.fee) || 0), 0);
   }
-  const centerFee = baseCenterFee * qty;
+  const centerFee = multiplyMoney(baseCenterFee, qty);
 
   const key = buildSubServiceCombinationKey(selected.map((s) => s.id));
   const override = item.combinationOverrides?.[key];
@@ -217,7 +218,7 @@ export function calculateSubServiceLine(
       ? override || buildDefaultCombinationLabel(selected.map((s) => s.label))
       : undefined;
 
-  const lineTotal = Math.round((govtFee + gatewayFee + postalFee + centerFee) * 100) / 100;
+  const lineTotal = addMoney(govtFee, gatewayFee, postalFee, centerFee);
 
   return {
     serviceName: item.serviceName,

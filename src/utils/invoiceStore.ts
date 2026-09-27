@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { upsertCustomer, generateUUIDv7, DEFAULT_BRANCH_ID } from "./customerStore";
 import { invoiceRecordSchema } from "./schemas";
 import { randomIdSuffix } from "./idGen";
+import { addMoney, subtractMoney, toPaisa, toTaka } from "./money";
 
 export interface InvoiceCustomer {
   customerId?: string;
@@ -78,16 +79,16 @@ export function computeInvoiceFeeTotals(invoice: Pick<InvoiceRecord, "lines">): 
   centerTotal: number;
   nonCenterTotal: number;
 } {
-  const govtTotal = invoice.lines.reduce((sum, l) => sum + (l.govtFee || 0), 0);
-  const postalTotal = invoice.lines.reduce((sum, l) => sum + (l.postalFee || 0), 0);
-  const gatewayTotal = invoice.lines.reduce((sum, l) => sum + (l.gatewayFee || 0), 0);
-  const centerTotal = invoice.lines.reduce((sum, l) => sum + (l.centerFee || 0), 0);
+  const govtTotal = addMoney(...invoice.lines.map((l) => l.govtFee || 0));
+  const postalTotal = addMoney(...invoice.lines.map((l) => l.postalFee || 0));
+  const gatewayTotal = addMoney(...invoice.lines.map((l) => l.gatewayFee || 0));
+  const centerTotal = addMoney(...invoice.lines.map((l) => l.centerFee || 0));
   return {
     govtTotal,
     postalTotal,
     gatewayTotal,
     centerTotal,
-    nonCenterTotal: govtTotal + postalTotal + gatewayTotal,
+    nonCenterTotal: addMoney(govtTotal, postalTotal, gatewayTotal),
   };
 }
 
@@ -104,43 +105,43 @@ export function allocateCollectionWaterfall(
   const totals = computeInvoiceFeeTotals(invoice);
   const prior = (invoice.collections || []).reduce(
     (acc, c) => ({
-      govt: acc.govt + (c.govtPortion || 0),
-      postal: acc.postal + (c.postalPortion || 0),
-      gateway: acc.gateway + (c.gatewayPortion || 0),
-      center: acc.center + (c.centerPortion || 0),
+      govtPaisa: acc.govtPaisa + toPaisa(c.govtPortion || 0),
+      postalPaisa: acc.postalPaisa + toPaisa(c.postalPortion || 0),
+      gatewayPaisa: acc.gatewayPaisa + toPaisa(c.gatewayPortion || 0),
+      centerPaisa: acc.centerPaisa + toPaisa(c.centerPortion || 0),
     }),
-    { govt: 0, postal: 0, gateway: 0, center: 0 }
+    { govtPaisa: 0, postalPaisa: 0, gatewayPaisa: 0, centerPaisa: 0 }
   );
 
-  let remaining = Math.max(0, newPaymentAmount);
+  let remainingPaisa = Math.max(0, toPaisa(newPaymentAmount));
 
-  const neededGovt = Math.max(0, totals.govtTotal - prior.govt);
-  const govtPortion = Math.min(remaining, neededGovt);
-  remaining -= govtPortion;
+  const neededGovtPaisa = Math.max(0, toPaisa(totals.govtTotal) - prior.govtPaisa);
+  const govtPortionPaisa = Math.min(remainingPaisa, neededGovtPaisa);
+  remainingPaisa -= govtPortionPaisa;
 
-  const neededPostal = Math.max(0, totals.postalTotal - prior.postal);
-  const postalPortion = Math.min(remaining, neededPostal);
-  remaining -= postalPortion;
+  const neededPostalPaisa = Math.max(0, toPaisa(totals.postalTotal) - prior.postalPaisa);
+  const postalPortionPaisa = Math.min(remainingPaisa, neededPostalPaisa);
+  remainingPaisa -= postalPortionPaisa;
 
-  const neededGateway = Math.max(0, totals.gatewayTotal - prior.gateway);
-  const gatewayPortion = Math.min(remaining, neededGateway);
-  remaining -= gatewayPortion;
+  const neededGatewayPaisa = Math.max(0, toPaisa(totals.gatewayTotal) - prior.gatewayPaisa);
+  const gatewayPortionPaisa = Math.min(remainingPaisa, neededGatewayPaisa);
+  remainingPaisa -= gatewayPortionPaisa;
 
-  const neededCenter = Math.max(0, totals.centerTotal - prior.center);
-  const centerPortion = Math.min(remaining, neededCenter);
+  const neededCenterPaisa = Math.max(0, toPaisa(totals.centerTotal) - prior.centerPaisa);
+  const centerPortionPaisa = Math.min(remainingPaisa, neededCenterPaisa);
 
   return {
-    govtPortion: Math.round(govtPortion * 100) / 100,
-    postalPortion: Math.round(postalPortion * 100) / 100,
-    gatewayPortion: Math.round(gatewayPortion * 100) / 100,
-    centerPortion: Math.round(centerPortion * 100) / 100,
+    govtPortion: toTaka(govtPortionPaisa),
+    postalPortion: toTaka(postalPortionPaisa),
+    gatewayPortion: toTaka(gatewayPortionPaisa),
+    centerPortion: toTaka(centerPortionPaisa),
   };
 }
 
 // কোনো ইনভয়েস থেকে আজ পর্যন্ত প্রকৃতপক্ষে কত টাকা কেন্দ্র-ফি (আয়) আদায় হয়েছে
 export function getInvoiceRealizedCenterFee(invoice: InvoiceRecord): number {
   if (invoice.collections && invoice.collections.length > 0) {
-    return invoice.collections.reduce((sum, c) => sum + (c.centerPortion || 0), 0);
+    return invoice.collections.reduce((sum, c) => addMoney(sum, c.centerPortion || 0), 0);
   }
   const totals = computeInvoiceFeeTotals(invoice);
   const effectivePaid =
@@ -149,8 +150,8 @@ export function getInvoiceRealizedCenterFee(invoice: InvoiceRecord): number {
       : invoice.paymentStatus === "PAID"
       ? invoice.total
       : 0;
-  const nonCenterTotal = totals.govtTotal + totals.postalTotal + totals.gatewayTotal;
-  const centerRealized = Math.max(0, effectivePaid - nonCenterTotal);
+  const nonCenterTotal = addMoney(totals.govtTotal, totals.postalTotal, totals.gatewayTotal);
+  const centerRealized = Math.max(0, subtractMoney(effectivePaid, nonCenterTotal));
   return Math.min(centerRealized, totals.centerTotal);
 }
 
@@ -551,8 +552,8 @@ export function recordDuePayment(
     return { ok: false, error: "সঠিক টাকার পরিমাণ দিন।" };
   }
 
-  const newPaid = Math.round((currentPaid + payment.amount) * 100) / 100;
-  const newDue = Math.max(0, Math.round((currentDue - payment.amount) * 100) / 100);
+  const newPaid = addMoney(currentPaid, payment.amount);
+  const newDue = Math.max(0, subtractMoney(currentDue, payment.amount));
   const paymentDate = payment.date || new Date().toISOString().slice(0, 10);
 
   const installment: PaymentInstallment = {
