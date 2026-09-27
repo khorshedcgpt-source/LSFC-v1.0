@@ -29,13 +29,13 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
-    "concurrently": "^9.X.X",
-    "electron": "^33.X.X",
-    "electron-builder": "^25.X.X",
+    "concurrently": "^10.0.5",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
     "tailwindcss": "^4.0.9",
     "typescript": "^5.7.3",
     "vite": "^6.2.0",
-    "wait-on": "^8.X.X"
+    "wait-on": "^9.1.0"
   },
   "build": {
     "appId": "bd.gov.lsfc.app",
@@ -59,7 +59,7 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "public/favicon.svg"
+      "icon": "public/lsfc-logo.ico"
     },
     "nsis": {
       "oneClick": false,
