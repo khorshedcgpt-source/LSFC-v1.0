@@ -143,7 +143,7 @@ export function calculateCustomServiceLine(
  * id-গুলো বর্ণানুক্রমে সাজিয়ে "+" দিয়ে জোড়া দেওয়া হয়, যাতে নির্বাচনের ক্রম যাই হোক কী একই থাকে।
  */
 export function buildSubServiceCombinationKey(ids: string[]): string {
-  return [...ids].sort().join("+");
+  return [...ids].sort((a, b) => a.localeCompare(b)).join("+");
 }
 
 /**
