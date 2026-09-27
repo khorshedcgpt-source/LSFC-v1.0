@@ -34,10 +34,8 @@ export interface PaymentInstallment {
 
 // --- কালেকশন Waterfall (v1.3) ---
 // প্রতিটা কালেকশনের (initial payment + পরবর্তী বকেয়া আদায়) টাকা এই ক্রমে বণ্টন হয়:
-// সরকারি ফি -> ডাক ফি -> গেটওয়ে ফি -> কেন্দ্র ফি (কারণ: সরকারি/ডাক/গেটওয়ে ফি অগ্রিম পরিশোধ করতে হয়)।
+// সরকারি ফি -> ডাক ফি -> গেটওয়ে ফি -> কেন্দ্র ফি।
 // শুধু centerPortion-ই প্রকৃত আয় (নিট-মুনাফায় গণনাযোগ্য) -- বাকি অংশ pass-through।
-// বকেয়া টাকা কালেকশন না হওয়া পর্যন্ত তা আয় হিসেবে গণ্য হবে না -- তাই centerPortion
-// কালেকশনের তারিখেই আয় হিসেবে যোগ হয়, ইনভয়েস তৈরির তারিখে নয়।
 export interface InvoiceCollection {
   id: string;
   date: string; // যেদিন টাকা কালেকশন হলো (YYYY-MM-DD)
@@ -54,25 +52,25 @@ export interface InvoiceRecord {
   centerId?: string;
   districtId?: string;
   upazilaId?: string;
-  id?: string; // স্থায়ী, গ্লোবালি-ইউনিক আইডি (UUID) -- ভবিষ্যতে multi-device/multi-branch সিংকের জন্য
+  id?: string;
   branchId?: string;
-  invoiceNo: string; // Deterministic 8-char: DDMMYYSS -- মানুষের পড়ার জন্য, রসিদে ছাপা হয়, এখনো lookup-key হিসেবে ব্যবহৃত
+  invoiceNo: string;
   customer: InvoiceCustomer;
   lines: InvoiceLine[];
   total: number;
-  paidAmount?: number; // ভূমি মালিক কর্তৃক পরিশোধিত মোট টাকা
-  dueAmount?: number; // অবশিষ্ট পাওনা (যদি থাকে)
-  discountAmount?: number; // বিশেষ ছাড় / মাফকৃত টাকা (শুধু কেন্দ্র-ফি অংশ থেকে কাটা হয়)
+  paidAmount?: number;
+  dueAmount?: number;
+  discountAmount?: number;
   paymentStatus?: "PAID" | "PARTIAL" | "WAIVED";
   paymentHistory?: PaymentInstallment[];
-  collections?: InvoiceCollection[]; // waterfall-ভিত্তিক আয়-বণ্টনের অডিট ট্রেইল
+  collections?: InvoiceCollection[];
   createdAt: string;
   applicationTrackingNo?: string;
   status?: "ACTIVE" | "VOIDED";
   paymentMethod?: string;
 }
 
-// ইনভয়েসের লাইনগুলো থেকে সামগ্রিক (লাইন-বাই-লাইন নয়, পুরো ইনভয়েস একত্রে) ফি-টোটাল হিসাব
+// ইনভয়েসের লাইনগুলো থেকে সামগ্রিক ফি-টোটাল হিসাব
 export function computeInvoiceFeeTotals(invoice: Pick<InvoiceRecord, "lines">): {
   govtTotal: number;
   postalTotal: number;
@@ -177,13 +175,14 @@ export const STORAGE_KEY_AUDIT_LOG = "lsfc.auditLog";
 export const AUDIT_LOG_CAPACITY = 500;
 
 /**
- * ARCHITECTURAL DECISION & AUDIT TRAIL INTEGRITY (FIX C):
- * Time-based automated silent deletion (e.g. purging entries older than 30/90 days) was explicitly
- * evaluated and REJECTED. In government land service facilitation (LSFC), audit records must remain
+ * ARCHITECTURAL DECISION & AUDIT TRAIL INTEGRITY:
+ * Time-based automated silent deletion was explicitly evaluated and REJECTED.
+ * In government land service facilitation (LSFC), audit records must remain
  * immutable and permanent for legal transparency and administrative audits.
- * Therefore, when active localStorage reaches the 500-entry capacity, the oldest excess records are
- * exported to a downloadable JSON archive before being pruned from localStorage. If the archive
- * download fails, pruning is aborted so zero records are lost silently.
+ * Therefore, when active localStorage reaches the 500-entry capacity, the
+ * oldest excess records are exported to a downloadable JSON archive before
+ * being pruned from localStorage. If the archive download fails, pruning is
+ * aborted so zero records are lost silently.
  */
 function downloadAuditArchive(entries: InvoiceAuditLogEntry[], filename: string): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -220,9 +219,10 @@ export function readAuditLog(): InvoiceAuditLogEntry[] {
 }
 
 /**
- * FIX C: Writes audit entries to localStorage capped at 500 entries.
- * When the cap is exceeded, excess oldest entries are archived as a JSON file download first,
- * and pruned only upon successful download. Returns true on successful write, false on failure.
+ * Writes audit entries to localStorage capped at 500 entries.
+ * When the cap is exceeded, excess oldest entries are archived as a JSON
+ * file download first, and pruned only upon successful download.
+ * Returns true on successful write, false on failure.
  */
 export function writeAuditLog(entries: InvoiceAuditLogEntry[]): boolean {
   if (typeof window === "undefined") return false;
@@ -238,7 +238,9 @@ export function writeAuditLog(entries: InvoiceAuditLogEntry[]): boolean {
 
     const downloadSuccess = downloadAuditArchive(excessEntriesToArchive, filename);
     if (!downloadSuccess) {
-      console.warn("Audit log archive download failed; aborting pruning to preserve immutable records.");
+      console.warn(
+        "Audit log archive download failed; aborting pruning to preserve immutable records."
+      );
     } else {
       entriesToStore = entriesToKeep;
     }
@@ -254,7 +256,8 @@ export function writeAuditLog(entries: InvoiceAuditLogEntry[]): boolean {
 }
 
 /**
- * FIX D: Deep-clone helper to prevent reference sharing between the live object and audit record.
+ * Deep-clone helper to prevent reference sharing between the live object
+ * and the audit record.
  */
 function deepClone<T>(obj: T): T {
   if (typeof structuredClone === "function") {
@@ -274,11 +277,12 @@ export interface DeleteStoredInvoiceOptions {
 }
 
 /**
- * FIX A, B, D, E: Hard delete — strictly reserved for admin cleanup.
+ * Hard delete — strictly reserved for admin cleanup.
  *
- * NOTE: The `_adminOnly: true` flag is an accidental-misuse guard only, intended to prevent
- * unintentional invocation from standard UI flows; it is NOT cryptographically secure client-side
- * authorization enforcement. Real enforcement requires a secure server-side role check, which will
+ * NOTE: The `_adminOnly: true` flag is an accidental-misuse guard only,
+ * intended to prevent unintentional invocation from standard UI flows;
+ * it is NOT cryptographically secure client-side authorization enforcement.
+ * Real enforcement requires a secure server-side role check, which will
  * be implemented in a future phase.
  */
 export function deleteStoredInvoice(
@@ -353,6 +357,22 @@ export function readInvoices(): InvoiceRecord[] {
 }
 
 /**
+ * Splits a string into its leading non-digit portion and trailing digit portion,
+ * without relying on backtracking-prone regex like /^(.*?)(\d+)$/.
+ * Returns null if the string has no trailing digits or is entirely digits.
+ */
+function splitTrailingDigits(value: string): { base: string; digits: string } | null {
+  let i = value.length;
+  while (i > 0) {
+    const code = value.charCodeAt(i - 1);
+    if (code < 48 || code > 57) break;
+    i--;
+  }
+  if (i === value.length || i === 0) return null;
+  return { base: value.slice(0, i), digits: value.slice(i) };
+}
+
+/**
  * Increments an invoice number sequence by 1.
  * Supports standard DDMMYYSS format as well as generic suffix numbers.
  */
@@ -360,18 +380,16 @@ export function incrementInvoiceNo(invoiceNo: string): string {
   if (/^\d{6}\d+$/.test(invoiceNo)) {
     const prefix = invoiceNo.slice(0, 6);
     const seqStr = invoiceNo.slice(6);
-    const seq = parseInt(seqStr, 10);
-    const nextSeq = isNaN(seq) ? 1 : seq + 1;
+    const seq = Number.parseInt(seqStr, 10);
+    const nextSeq = Number.isNaN(seq) ? 1 : seq + 1;
     const padLength = Math.max(2, seqStr.length);
     return `${prefix}${String(nextSeq).padStart(padLength, "0")}`;
   }
 
-  const trailingDigitsMatch = invoiceNo.match(/^(.*?)(\d+)$/);
-  if (trailingDigitsMatch) {
-    const base = trailingDigitsMatch[1];
-    const digits = trailingDigitsMatch[2];
-    const nextNum = parseInt(digits, 10) + 1;
-    return `${base}${String(nextNum).padStart(digits.length, "0")}`;
+  const split = splitTrailingDigits(invoiceNo);
+  if (split) {
+    const nextNum = Number.parseInt(split.digits, 10) + 1;
+    return `${split.base}${String(nextNum).padStart(split.digits.length, "0")}`;
   }
 
   return `${invoiceNo}-1`;
@@ -384,7 +402,7 @@ export function writeInvoices(invoices: InvoiceRecord[]): void {
     // already has that exact invoiceNo. If a collision is found, increment and retry (up to 5 attempts).
     const seen = new Set<string>();
     const sanitized = invoices.map((inv) => {
-      let invNo = inv.invoiceNo;
+      const invNo = inv.invoiceNo;
       if (!invNo) return inv;
 
       if (seen.has(invNo)) {
@@ -561,7 +579,7 @@ export function recordDuePayment(
     dueAmount: newDue,
     paymentStatus: newDue === 0 ? "PAID" : "PARTIAL",
     paymentHistory: [...(target.paymentHistory || []), installment],
-    collections: [...(target.collections || []), collectionEntry],
+    collections: [...(target.collections || []), collectionRef(collectionEntry)],
   };
 
   invoices[index] = updatedInvoice;
@@ -569,9 +587,13 @@ export function recordDuePayment(
   return { ok: true, invoice: updatedInvoice };
 }
 
+function collectionRef(c: InvoiceCollection): InvoiceCollection {
+  return c;
+}
+
 /**
- * TODO(Phase 2): This read-max-then-increment pattern is NOT safe for 
- * multi-device or multi-center concurrent writes. Replace with a database 
+ * TODO(Phase 2): This read-max-then-increment pattern is NOT safe for
+ * multi-device or multi-center concurrent writes. Replace with a database
  * sequence before enabling cloud sync.
  */
 export function generateInvoiceNo(): string {
@@ -586,8 +608,8 @@ export function generateInvoiceNo(): string {
   for (const inv of invoices) {
     if (inv.invoiceNo && inv.invoiceNo.startsWith(prefix)) {
       const seqStr = inv.invoiceNo.slice(prefix.length);
-      const seq = parseInt(seqStr, 10);
-      if (!isNaN(seq) && seq > maxSeq) {
+      const seq = Number.parseInt(seqStr, 10);
+      if (!Number.isNaN(seq) && seq > maxSeq) {
         maxSeq = seq;
       }
     }

@@ -174,7 +174,10 @@ export function readCustomersAtRest(): CustomerRecord[] {
  * Asynchronously persists customer records to disk with encrypted NID.
  * Guarded by sequence number: aborts if a newer write occurred in the interim.
  */
-async function persistEncryptedCustomers(customers: CustomerRecord[], sequence: number): Promise<void> {
+async function persistEncryptedCustomers(
+  customers: CustomerRecord[],
+  sequence: number
+): Promise<void> {
   if (typeof window === "undefined") return;
   try {
     const encrypted = await Promise.all(
@@ -197,6 +200,24 @@ async function persistEncryptedCustomers(customers: CustomerRecord[], sequence: 
 }
 
 /**
+ * Splits a string into its leading non-digit portion and trailing digit portion,
+ * without relying on backtracking-prone regex like /^(.*?)(\d+)$/.
+ * Returns null if the string has no trailing digits or is entirely digits.
+ */
+function splitTrailingDigits(
+  value: string
+): { base: string; digits: string } | null {
+  let i = value.length;
+  while (i > 0) {
+    const code = value.charCodeAt(i - 1);
+    if (code < 48 || code > 57) break;
+    i--;
+  }
+  if (i === value.length || i === 0) return null;
+  return { base: value.slice(0, i), digits: value.slice(i) };
+}
+
+/**
  * Increments a customer number sequence by 1.
  * Supports standard LSFC[geo]-[YY][serial] format as well as trailing digits.
  */
@@ -204,18 +225,16 @@ export function incrementCustomerNumber(customerNumber: string): string {
   const prefix = buildCustomerNumberPrefix();
   if (customerNumber.startsWith(prefix)) {
     const serialStr = customerNumber.slice(prefix.length);
-    const serialNum = parseInt(serialStr, 10);
-    const nextNum = isNaN(serialNum) ? 1 : serialNum + 1;
+    const serialNum = Number.parseInt(serialStr, 10);
+    const nextNum = Number.isNaN(serialNum) ? 1 : serialNum + 1;
     const padLength = Math.max(4, serialStr.length);
     return `${prefix}${String(nextNum).padStart(padLength, "0")}`;
   }
 
-  const trailingMatch = customerNumber.match(/^(.*?)(\d+)$/);
-  if (trailingMatch) {
-    const base = trailingMatch[1];
-    const digits = trailingMatch[2];
-    const nextNum = parseInt(digits, 10) + 1;
-    return `${base}${String(nextNum).padStart(digits.length, "0")}`;
+  const split = splitTrailingDigits(customerNumber);
+  if (split) {
+    const nextNum = Number.parseInt(split.digits, 10) + 1;
+    return `${split.base}${String(nextNum).padStart(split.digits.length, "0")}`;
   }
 
   return `${customerNumber}-1`;
@@ -235,23 +254,29 @@ export function writeCustomers(customers: CustomerRecord[]): void {
     // already has that exact customerNumber. If a collision is found, increment and retry (up to 5 attempts).
     const seen = new Set<string>();
     const sanitized = customers.map((c) => {
-      let custNo = c.customerNumber;
+      const custNo = c.customerNumber;
       if (!custNo) return c;
 
       if (seen.has(custNo)) {
-        console.warn(`Duplicate customerNumber collision detected for "${custNo}". Resolving...`);
+        console.warn(
+          `Duplicate customerNumber collision detected for "${custNo}". Resolving...`
+        );
         let resolvedNo = custNo;
         let success = false;
         for (let attempt = 1; attempt <= 5; attempt++) {
           resolvedNo = incrementCustomerNumber(resolvedNo);
           if (!seen.has(resolvedNo)) {
-            console.warn(`Duplicate customerNumber resolved to "${resolvedNo}" on attempt ${attempt}`);
+            console.warn(
+              `Duplicate customerNumber resolved to "${resolvedNo}" on attempt ${attempt}`
+            );
             success = true;
             break;
           }
         }
         if (!success) {
-          console.error(`Failed to resolve duplicate customerNumber "${custNo}" after 5 attempts!`);
+          console.error(
+            `Failed to resolve duplicate customerNumber "${custNo}" after 5 attempts!`
+          );
         }
         seen.add(resolvedNo);
         return { ...c, customerNumber: resolvedNo };
@@ -298,8 +323,8 @@ export function buildCustomerNumberPrefix(): string {
 }
 
 /**
- * TODO(Phase 2): This read-max-then-increment pattern is NOT safe for 
- * multi-device or multi-center concurrent writes. Replace with a database 
+ * TODO(Phase 2): This read-max-then-increment pattern is NOT safe for
+ * multi-device or multi-center concurrent writes. Replace with a database
  * sequence before enabling cloud sync.
  *
  * Generates the next human-readable customer unique ID for this center.
@@ -317,8 +342,8 @@ export function generateCustomerNumber(): string {
   for (const c of customers) {
     if (c.customerNumber && c.customerNumber.startsWith(prefix)) {
       const serialStr = c.customerNumber.slice(prefix.length);
-      const serialNum = parseInt(serialStr, 10);
-      if (!isNaN(serialNum) && serialNum > maxSerial) {
+      const serialNum = Number.parseInt(serialStr, 10);
+      if (!Number.isNaN(serialNum) && serialNum > maxSerial) {
         maxSerial = serialNum;
       }
     }
@@ -342,8 +367,8 @@ export function migrateCustomerNumbers(): number {
   let maxSerial = 0;
   for (const c of customers) {
     if (c.customerNumber && c.customerNumber.startsWith(prefix)) {
-      const n = parseInt(c.customerNumber.slice(prefix.length), 10);
-      if (!isNaN(n) && n > maxSerial) maxSerial = n;
+      const n = Number.parseInt(c.customerNumber.slice(prefix.length), 10);
+      if (!Number.isNaN(n) && n > maxSerial) maxSerial = n;
     }
   }
 
@@ -388,7 +413,10 @@ export function generateUUIDv7(): string {
 }
 
 // Find customer by mobile or NID (returns first match, preferring NID match)
-export function findCustomerByPhoneOrNid(query: string, name?: string): CustomerRecord | undefined {
+export function findCustomerByPhoneOrNid(
+  query: string,
+  name?: string
+): CustomerRecord | undefined {
   if (!query) return undefined;
   const customers = readCustomers();
   const cleaned = convertBanglaToAscii(query).replace(/\D/g, "");
@@ -406,7 +434,10 @@ export function findCustomerByPhoneOrNid(query: string, name?: string): Customer
     const normTarget = normalizeCustomerName(name);
     const exactNameMatch = customers.find((c) => {
       const cPhone = cleanPhone(c.mobile);
-      return cPhone === cleaned && normalizeCustomerName(c.fullName) === normTarget;
+      return (
+        cPhone === cleaned &&
+        normalizeCustomerName(c.fullName) === normTarget
+      );
     });
     if (exactNameMatch) return exactNameMatch;
   }
@@ -434,7 +465,9 @@ export function normalizeCustomerName(name: string): string {
 }
 
 // Upsert a customer record
-export function upsertCustomer(record: Omit<CustomerRecord, "id"> & { id?: string }): CustomerRecord {
+export function upsertCustomer(
+  record: Omit<CustomerRecord, "id"> & { id?: string }
+): CustomerRecord {
   const customers = readCustomers();
   const phone = cleanPhone(record.mobile);
   const nid = cleanNid(record.nidNo);
@@ -482,18 +515,24 @@ export function upsertCustomer(record: Omit<CustomerRecord, "id"> & { id?: strin
       customers.map((c) => c.customerNumber).filter(Boolean) as string[]
     );
     if (existingNumbers.has(customerNumber)) {
-      console.warn(`CustomerNumber collision detected: "${customerNumber}". Resolving...`);
+      console.warn(
+        `CustomerNumber collision detected: "${customerNumber}". Resolving...`
+      );
       let resolved = false;
       for (let attempt = 1; attempt <= 5; attempt++) {
         customerNumber = incrementCustomerNumber(customerNumber);
         if (!existingNumbers.has(customerNumber)) {
-          console.warn(`Collision resolved on attempt ${attempt}: new customerNumber "${customerNumber}"`);
+          console.warn(
+            `Collision resolved on attempt ${attempt}: new customerNumber "${customerNumber}"`
+          );
           resolved = true;
           break;
         }
       }
       if (!resolved) {
-        console.error(`Failed to resolve duplicate customerNumber "${customerNumber}" after 5 attempts!`);
+        console.error(
+          `Failed to resolve duplicate customerNumber "${customerNumber}" after 5 attempts!`
+        );
       }
     }
 
