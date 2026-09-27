@@ -2,7 +2,7 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { CenterReportData } from "./types";
 import { CenterSettings } from "../../utils/institutionSettings";
-import { PDF_COLORS, ensurePdfFontsRegistered } from "../../utils/pdfStandards";
+import { PDF_COLORS, PDF_HEADER_STYLES, ensurePdfFontsRegistered } from "../../utils/pdfStandards";
 import { toBanglaNumber, moneyBn } from "../../utils/bengaliNumbers";
 import { bn, type Shaped } from "../../utils/banglaShaping/shapeTree";
 import { ShapedText } from "./ShapedText";
@@ -10,6 +10,7 @@ import { ShapedText } from "./ShapedText";
 ensurePdfFontsRegistered();
 
 const styles = StyleSheet.create({
+  ...PDF_HEADER_STYLES,
   page: {
     paddingTop: 24,
     paddingBottom: 36,
@@ -25,25 +26,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     marginBottom: 12,
     alignItems: "center",
-  },
-  topGovt: {
-    fontSize: 8.5,
-    color: PDF_COLORS.SECONDARY,
-    marginBottom: 2,
-  },
-  brandTitle: {
-    fontFamily: "AnekBangla",
-    fontWeight: 700,
-    fontSize: 18,
-    color: PDF_COLORS.PRIMARY,
-    marginBottom: 2,
-  },
-  reportTitle: {
-    fontFamily: "AnekBangla",
-    fontWeight: 700,
-    fontSize: 12,
-    color: PDF_COLORS.SECONDARY,
-    marginTop: 2,
   },
   metaRow: {
     flexDirection: "row",

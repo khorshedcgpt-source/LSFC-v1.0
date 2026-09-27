@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { DEFAULT_BRANCH_ID } from "./customerStore";
-import { localUserSchema } from "./schemas";
+import { localUserSchema } from "./backupSchema";
 
 // ফেজ-১ (MVP): সম্পূর্ণ লোকাল অথ, Firebase ছাড়াই। role/scope-এর শেপটা ইচ্ছাকৃতভাবে
 // Firebase Auth Custom Claims-এর মতো রাখা হয়েছে, যাতে v1.0-এ ব্যাকএন্ড বদলালে

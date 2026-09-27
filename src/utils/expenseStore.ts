@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { expenseRecordSchema } from "./schemas";
+import { expenseRecordSchema } from "./backupSchema";
 import { randomIdSuffix } from "./idGen";
 
 export type ExpenseCategory =

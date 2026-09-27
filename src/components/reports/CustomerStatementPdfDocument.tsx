@@ -3,7 +3,7 @@ import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/render
 import { CustomerRecord } from "../../utils/customerStore";
 import { InvoiceRecord } from "../../utils/invoiceStore";
 import { CenterSettings, readSettings } from "../../utils/institutionSettings";
-import { PDF_COLORS, ensurePdfFontsRegistered } from "../../utils/pdfStandards";
+import { PDF_COLORS, PDF_HEADER_STYLES, ensurePdfFontsRegistered } from "../../utils/pdfStandards";
 import { toBanglaNumber, moneyBn } from "../../utils/bengaliNumbers";
 import { bn, type Shaped } from "../../utils/banglaShaping/shapeTree";
 import { formatOwnerName } from "../../utils/banglaShaping/invoiceTextFields";
@@ -12,6 +12,7 @@ import { ShapedText, ShapedTextWrap } from "./ShapedText";
 ensurePdfFontsRegistered();
 
 const styles = StyleSheet.create({
+  ...PDF_HEADER_STYLES,
   page: {
     paddingTop: 24,
     paddingBottom: 36,
@@ -27,53 +28,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     marginBottom: 10,
     alignItems: "center",
-  },
-  headerTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  logoSlot: {
-    width: 44,
-    height: 44,
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
-  logoSlotRight: {
-    width: 44,
-    height: 44,
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
-  logoImage: {
-    width: 42,
-    height: 42,
-    objectFit: "contain",
-  },
-  headerCenterCol: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  topGovt: {
-    fontSize: 8.5,
-    color: PDF_COLORS.SECONDARY,
-    marginBottom: 2,
-  },
-  brandTitle: {
-    fontFamily: "AnekBangla",
-    fontWeight: 700,
-    fontSize: 18,
-    color: PDF_COLORS.PRIMARY,
-    marginBottom: 2,
-  },
-  reportTitle: {
-    fontFamily: "AnekBangla",
-    fontWeight: 700,
-    fontSize: 12,
-    color: PDF_COLORS.SECONDARY,
-    marginTop: 2,
   },
   customerBox: {
     borderWidth: 1,

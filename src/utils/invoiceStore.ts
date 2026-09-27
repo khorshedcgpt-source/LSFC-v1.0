@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { upsertCustomer, generateUUIDv7, DEFAULT_BRANCH_ID } from "./customerStore";
-import { invoiceRecordSchema } from "./schemas";
+import { invoiceRecordSchema } from "./backupSchema";
 import { randomIdSuffix } from "./idGen";
 import { addMoney, subtractMoney, toPaisa, toTaka } from "./money";
 

@@ -1,4 +1,4 @@
-import { Font } from "@react-pdf/renderer";
+import { Font, StyleSheet } from "@react-pdf/renderer";
 import { resolveAssetUrl } from "./assetUrl";
 
 // Global Bengali Hyphenation Callback to prevent breaking words across syllable boundaries
@@ -63,3 +63,54 @@ export const PDF_FONTS = {
   TITLE: "AnekBangla",
   BODY: "Kalpurush",
 } as const;
+
+// Shared Header & Logo Layout Styles (DRY across all LSFC PDF reports)
+export const PDF_HEADER_STYLES = StyleSheet.create({
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  logoSlot: {
+    width: 44,
+    height: 44,
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  logoSlotRight: {
+    width: 44,
+    height: 44,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  logoImage: {
+    width: 42,
+    height: 42,
+    objectFit: "contain",
+  },
+  headerCenterCol: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topGovt: {
+    fontSize: 8.5,
+    color: PDF_COLORS.SECONDARY,
+    marginBottom: 2,
+  },
+  brandTitle: {
+    fontFamily: "AnekBangla",
+    fontWeight: 700,
+    fontSize: 18,
+    color: PDF_COLORS.PRIMARY,
+    marginBottom: 2,
+  },
+  reportTitle: {
+    fontFamily: "AnekBangla",
+    fontWeight: 700,
+    fontSize: 12,
+    color: PDF_COLORS.SECONDARY,
+    marginTop: 2,
+  },
+});

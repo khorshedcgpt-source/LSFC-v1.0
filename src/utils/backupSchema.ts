@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { LocalUser, UserRole, UserScope } from "./authStore";
 import type { CustomerRecord } from "./customerStore";
 import type {
   InvoiceCustomer,
@@ -18,7 +19,33 @@ import type {
 import type { ServiceType } from "./serviceCalculator";
 
 // ==========================================
-// 1. Customer Schema
+// 1. User Schemas
+// ==========================================
+export const userRoleSchema: z.ZodType<UserRole> = z.enum(["staff", "branch_incharge", "admin"]);
+
+export const userScopeSchema: z.ZodType<UserScope> = z.object({
+  level: z.enum(["branch", "all"]),
+  id: z.string(),
+});
+
+export const localUserSchema: z.ZodType<LocalUser> = z.object({
+  id: z.string().min(1, { message: "ব্যবহারকারী আইডি আবশ্যক" }),
+  username: z.string().min(1, { message: "ইউজারনেম আবশ্যক" }),
+  displayName: z.string().min(1, { message: "নাম আবশ্যক" }),
+  role: userRoleSchema,
+  scope: userScopeSchema,
+  branchId: z.string(),
+  passwordHash: z.string(),
+  passwordSalt: z.string(),
+  hashAlgorithm: z
+    .enum(["pbkdf2-sha256-600k", "pbkdf2-sha256-100k", "legacy-sha256"])
+    .optional(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+});
+
+// ==========================================
+// 2. Customer Schema
 // ==========================================
 export const customerRecordSchema: z.ZodType<CustomerRecord> = z.object({
   centerId: z.string().optional(),
@@ -39,7 +66,7 @@ export const customerRecordSchema: z.ZodType<CustomerRecord> = z.object({
 });
 
 // ==========================================
-// 2. Invoice Schemas
+// 3. Invoice Schemas
 // ==========================================
 export const invoiceCustomerSchema: z.ZodType<InvoiceCustomer> = z.object({
   customerId: z.string().optional(),
@@ -105,7 +132,7 @@ export const invoiceRecordSchema: z.ZodType<InvoiceRecord> = z.object({
 });
 
 // ==========================================
-// 3. Expense Schemas
+// 4. Expense Schemas
 // ==========================================
 export const expenseCategorySchema: z.ZodType<ExpenseCategory> = z.enum([
   "stationery",
@@ -146,7 +173,7 @@ export const expenseRecordSchema: z.ZodType<ExpenseRecord> = z.object({
 });
 
 // ==========================================
-// 4. Institution Settings Schemas
+// 5. Institution Settings Schemas
 // ==========================================
 export const displayOptionsSchema: z.ZodType<DisplayOptions> = z.object({
   showLogoOnInvoice: z.boolean(),
@@ -228,7 +255,7 @@ export const institutionSettingsSchema: z.ZodType<InstitutionSettings> = institu
 export const institutionSettingsPartialSchema = institutionSettingsObjectSchema.partial();
 
 // ==========================================
-// 5. Complete Backup Schemas
+// 6. Complete Backup Schemas
 // ==========================================
 export const exportedUserSchema = z
   .object({

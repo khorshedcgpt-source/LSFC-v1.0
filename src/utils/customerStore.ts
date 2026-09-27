@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { readInstitutionSettings } from "./institutionSettings";
-import { customerRecordSchema } from "./schemas";
+import { customerRecordSchema } from "./backupSchema";
 import {
   encryptField,
   decryptField,
