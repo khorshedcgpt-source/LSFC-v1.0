@@ -51,13 +51,17 @@ export function calculateServiceLine(input: ServiceInput): CalculatedServiceLine
   let postalFee = 0;
   let centerFee = 0;
   let subText = "";
-  const def = SERVICE_DEFINITIONS[input.serviceType] || SERVICE_DEFINITIONS.namjari;
-  const serviceName = def.nameBn;
+  let serviceName = "";
 
   const qty = Math.max(1, Math.round(Number(input.quantity) || 1));
 
+  // Exhaustive switch: every supported serviceType has its own case.
+  // No silent fallback to a default service — if TypeScript's type union
+  // ever grows without this switch being updated, the `never` assignment
+  // in the default branch will fail compilation, which is intentional.
   switch (input.serviceType) {
     case "namjari": {
+      serviceName = SERVICE_DEFINITIONS.namjari.nameBn;
       govtFee = 70 * qty;
       const pages = input.pages !== undefined ? Number(input.pages) : 20;
       const applicants = input.applicants !== undefined ? Number(input.applicants) : 4;
@@ -87,10 +91,12 @@ export function calculateServiceLine(input: ServiceInput): CalculatedServiceLine
       break;
     }
     default: {
-      // Defensive: unknown serviceType — return zero-fee line rather than
-      // silently falling through to the namjari defaults.
-      console.warn(`[serviceCalculator] Unknown serviceType: ${input.serviceType}`);
-      break;
+      // Exhaustiveness guard — TypeScript will error here if ServiceType
+      // gains a new member without a corresponding case above.
+      const _exhaustive: never = input.serviceType;
+      throw new Error(
+        `[serviceCalculator] Unsupported serviceType: ${String(_exhaustive)}`
+      );
     }
   }
 
@@ -172,9 +178,8 @@ export function buildDefaultCombinationLabel(labels: string[]): string {
 /**
  * "অধীনস্ত সেবা" (subServices) কনফিগার করা সেবার জন্য ফি হিসাব — যেকোনো সেবাতেই প্রযোজ্য
  * (namjari/khatian/mouza-এর বিশেষ ফর্মুলার বাইরে, এবং কাস্টম ফ্ল্যাট-ফি সেবারও বাইরে)।
- * সরকারি ফি এখানে সবসময় ম্যানুয়াল ইনপুট (আবেদন ফর্মে প্রতি আবেদনে আলাদা হতে পারে);
- * কেন্দ্র ফি = নির্বাচিত subService-গুলোর ফি-যোগফল × quantity; সাব-টাইটেল = combinationOverrides-এ
- * হুবহু মিল থাকলে সেই কাস্টম বাক্য, না থাকলে ডিফল্ট জোড়া-লাগানো।
+ * সরকারি ফি এখানে সবসময় ম্যানুয়াল ইনপুট; কেন্দ্র ফি = নির্বাচিত subService-গুলোর ফি-যোগফল × quantity;
+ * সাব-টাইটেল = combinationOverrides-এ হুবহু মিল থাকলে সেই কাস্টম বাক্য, না থাকলে ডিফল্ট জোড়া-লাগানো।
  */
 export function calculateSubServiceLine(
   item: ServiceSettingItem,
@@ -231,11 +236,11 @@ export function calculateSubServiceLine(
  * Ensures all invoice subtitles are wrapped in brackets `(...)`
  * and monetary figures are ONLY shown for Namjari (Mutation) services.
  *
- * All regexes here are intentionally written as linear-time patterns
- * (flat character classes, no nested/ambiguous quantifiers) to avoid
- * SonarQube S5843 "super-linear backtracking". The previous
- * `\s*\(?...\s*[...\s...]+...\)?` forms were super-linear on
- * pathological inputs.
+ * All regexes here are written as linear-time patterns (flat character
+ * classes, no nested/ambiguous quantifiers) to satisfy SonarQube S5843
+ * "super-linear backtracking". Specifically, `\s` is never placed inside a
+ * character class that is adjacent to a separate `\s*` — that overlap is
+ * what triggers exponential backtracking on pathological inputs.
  */
 export function formatInvoiceSubtitle(
   serviceName: string,
@@ -257,13 +262,13 @@ export function formatInvoiceSubtitle(
     s = toBanglaNumber(s);
   } else {
     // Strip monetary figures from non-namjari services.
-    // Each pattern uses a single optional "(" and ")" plus a flat character
-    // class — no ambiguity, so no exponential backtracking.
+    // Each pattern uses a single explicit "\s*" adjacent to a character
+    // class that does NOT contain "\s" — no ambiguity, no backtracking.
     s = s
-      .replace(/\(?\s*ডাক\s*মাশুল[\s৳Tk.\d০-৯/-]*\)?/gi, "")
-      .replace(/\(?\s*ডাক\s*ফি[\s৳Tk.\d০-৯]*অন্তর্ভুক্ত\s*\)?/gi, "")
-      .replace(/\(?\s*[৳Tk.][\d০-৯,.\s]*\)?/gi, "")
-      .replace(/\(?\s*[\d০-৯,.\s]+টাকা\s*\)?/gi, "")
+      .replace(/\(?\s*ডাক\s*মাশুল\s*[৳Tk.\d০-৯/-]*\)?/gi, "")
+      .replace(/\(?\s*ডাক\s*ফি\s*[৳Tk.\d০-৯/-]*অন্তর্ভুক্ত\s*\)?/gi, "")
+      .replace(/\(?\s*[৳Tk.]\s*[\d০-৯,.]*\)?/gi, "")
+      .replace(/\(?\s*[\d০-৯,.]+\s*টাকা\s*\)?/gi, "")
       .trim();
   }
 
