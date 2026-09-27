@@ -249,8 +249,8 @@ export async function verifyLogin(
     let iterations = 100_000;
     let targetHash = user.passwordHash;
     if (parts.length === 3) {
-      const parsedIter = parseInt(parts[1], 10);
-      if (!isNaN(parsedIter) && parsedIter > 0) {
+      const parsedIter = Number.parseInt(parts[1], 10);
+      if (!Number.isNaN(parsedIter) && parsedIter > 0) {
         iterations = parsedIter;
       }
       targetHash = parts[2];

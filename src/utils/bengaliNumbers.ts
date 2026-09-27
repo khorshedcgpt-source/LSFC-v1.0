@@ -6,10 +6,16 @@
 // two files. InvoicePrint.tsx re-exports these names for backward
 // compatibility with any other file that imports them from there.
 
-export function toBanglaNumber(num: number | string | undefined | null): string {
+export function toBanglaNumber(
+  num: number | string | undefined | null
+): string {
   if (num === undefined || num === null) return "";
+
   const bnDigits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
-  return num.toString().replace(/\d/g, (d) => bnDigits[parseInt(d, 10)]);
+
+  return num
+    .toString()
+    .replace(/\d/g, (d) => bnDigits[Number.parseInt(d, 10)]);
 }
 
 export function moneyBn(val: number | undefined | null): string {
