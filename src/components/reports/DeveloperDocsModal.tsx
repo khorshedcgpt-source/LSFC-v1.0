@@ -6,7 +6,7 @@ import { toBanglaNumber } from "../../utils/bengaliNumbers";
 
 export const DeveloperDocsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"ai_prompt" | "policy">("ai_prompt");
+  const [activeTab, setActiveTab] = useState<"ai_prompt" | "policy">("policy");
   const { settings } = useInstitutionSettings();
 
   const activeServices: ServiceSettingItem[] = [
