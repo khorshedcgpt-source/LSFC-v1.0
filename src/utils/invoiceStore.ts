@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { upsertCustomer, generateUUIDv7, DEFAULT_BRANCH_ID } from "./customerStore";
 import { invoiceRecordSchema } from "./schemas";
+import { randomIdSuffix } from "./idGen";
 
 export interface InvoiceCustomer {
   customerId?: string;
@@ -306,7 +307,7 @@ export function deleteStoredInvoice(
   const clonedTarget = deepClone(target);
 
   const auditEntry: InvoiceAuditLogEntry = {
-    id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: `audit-${Date.now()}-${randomIdSuffix(4)}`,
     action: "DELETE_INVOICE",
     timestamp: new Date().toISOString(),
     deletedBy: options.deletedBy.trim(),
@@ -537,7 +538,7 @@ export function recordDuePayment(
   const paymentDate = payment.date || new Date().toISOString().slice(0, 10);
 
   const installment: PaymentInstallment = {
-    id: `pay-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: `pay-${Date.now()}-${randomIdSuffix(4)}`,
     amount: payment.amount,
     date: paymentDate,
     receivedBy: payment.receivedBy,
@@ -546,7 +547,7 @@ export function recordDuePayment(
 
   const portions = allocateCollectionWaterfall(target, payment.amount);
   const collectionEntry: InvoiceCollection = {
-    id: `col-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: `col-${Date.now()}-${randomIdSuffix(4)}`,
     date: paymentDate,
     amount: payment.amount,
     ...portions,

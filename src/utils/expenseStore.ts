@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { expenseRecordSchema } from "./schemas";
+import { randomIdSuffix } from "./idGen";
 
 export type ExpenseCategory =
   | "stationery" // কাগজ, খাতা, স্ট্যাপলার
@@ -116,7 +117,7 @@ export function addExpense(
   const expenses = readExpenses();
   const newRecord: ExpenseRecord = {
     ...expense,
-    id: `exp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: `exp-${Date.now()}-${randomIdSuffix(5)}`,
     status: "pending",
     createdAt: new Date().toISOString(),
   };
