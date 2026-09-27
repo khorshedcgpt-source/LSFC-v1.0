@@ -8,9 +8,7 @@ import {
   Trash2,
   CheckCircle2,
   Printer,
-  Sparkles,
   MapPin,
-  FileCheck2,
   RotateCcw,
   AlertCircle,
 } from "lucide-react";
@@ -532,27 +530,6 @@ export const ApplicationForm: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Header Card */}
-      <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileCheck2 className="w-6 h-6 text-[#902A8B]" />
-              <h2 className="text-xl font-bold font-anek text-gray-800">
-                নতুন ভূমিসেবা আবেদন ও ইনভয়েস তৈরি
-              </h2>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              ভূমি মালিকের তথ্য এবং সঠিক সেবা নির্বাচন করে প্রমিত ভেক্টর পিডিএফ রসিদ প্রিন্ট করুন
-            </p>
-          </div>
-          <div className="flex items-center gap-2 bg-purple-50 text-[#902A8B] px-3 py-1.5 rounded-lg border border-purple-200 text-xs font-medium">
-            <Sparkles className="w-4 h-4 text-[#37A448]" />
-            স্বয়ংক্রিয় গেটওয়ে ও প্রমিত ফি গণনা
-          </div>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Columns: Customer Info & Service Selection */}
         <div className="lg:col-span-2 space-y-6">

@@ -16,7 +16,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: "ভূমিসেবা সহায়তা কেন্দ্র",
-    icon: path.join(__dirname, "../public/favicon.svg"),
+    icon: path.join(__dirname, "../public/lsfc-logo.ico"),
     backgroundColor: "#FFFFFF",
     show: false,
     webPreferences: {

@@ -8,6 +8,7 @@ import { toBanglaNumber, moneyBn } from "../../utils/bengaliNumbers";
 import { bn, type Shaped } from "../../utils/banglaShaping/shapeTree";
 import { formatOwnerName } from "../../utils/banglaShaping/invoiceTextFields";
 import { ShapedText, ShapedTextWrap } from "./ShapedText";
+import { getEffectiveLogoUrl } from "../../utils/defaultLogo";
 
 ensurePdfFontsRegistered();
 
@@ -161,13 +162,13 @@ export const CustomerStatementPdfDocument: React.FC<{
       <Page size="A4" orientation="portrait" style={styles.page}>
         <View style={styles.header}>
           {Boolean(
-            (settings.displayOptions?.showLogoOnReports !== false && settings.logoUrl) ||
+            (settings.displayOptions?.showLogoOnReports !== false && getEffectiveLogoUrl(settings.logoUrl)) ||
             settings.ministryLogoUrl
           ) ? (
             <View style={styles.headerTopRow}>
               <View style={styles.logoSlot}>
-                {settings.displayOptions?.showLogoOnReports !== false && settings.logoUrl ? (
-                  <Image src={settings.logoUrl} style={styles.logoImage} />
+                {settings.displayOptions?.showLogoOnReports !== false && getEffectiveLogoUrl(settings.logoUrl) ? (
+                  <Image src={getEffectiveLogoUrl(settings.logoUrl)} style={styles.logoImage} />
                 ) : null}
               </View>
               <View style={styles.headerCenterCol}>

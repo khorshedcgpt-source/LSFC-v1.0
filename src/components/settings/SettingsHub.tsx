@@ -1,17 +1,19 @@
 import React, { useState } from "react";
-import { Building2, FileCheck, Database, Users } from "lucide-react";
+import { Building2, FileCheck, Database, Users, Palette } from "lucide-react";
 import { OrganizationSettings } from "./OrganizationSettings";
 import { ServiceFeeSettings } from "./ServiceFeeSettings";
 import { BackupRestore } from "./BackupRestore";
 import { UserManagement } from "./UserManagement";
+import { ThemeSettings } from "./ThemeSettings";
 
-type SettingsTab = "organization" | "services" | "backup" | "users";
+type SettingsTab = "organization" | "services" | "backup" | "users" | "theme";
 
 const TABS: { key: SettingsTab; label: string; icon: React.ElementType }[] = [
   { key: "organization", label: "প্রাতিষ্ঠানিক তথ্য", icon: Building2 },
   { key: "services", label: "সেবা ও ফি", icon: FileCheck },
   { key: "backup", label: "ব্যাকআপ ও রিস্টোর", icon: Database },
   { key: "users", label: "ব্যবহারকারী ও কর্মী", icon: Users },
+  { key: "theme", label: "ইন্টারফেস ও থিম", icon: Palette },
 ];
 
 // প্রতিটি ট্যাব শুধু সক্রিয় থাকা অবস্থায় মাউন্ট হয় — ট্যাব বদলালে আগেরটা আনমাউন্ট হয়ে যায়,
@@ -46,6 +48,7 @@ export const SettingsHub: React.FC = () => {
       {activeTab === "services" && <ServiceFeeSettings />}
       {activeTab === "backup" && <BackupRestore />}
       {activeTab === "users" && <UserManagement />}
+      {activeTab === "theme" && <ThemeSettings />}
     </div>
   );
 };

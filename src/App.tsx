@@ -27,8 +27,11 @@ import { useAuth, logout } from "./utils/authStore";
 import { SettingsRoleGate } from "./components/auth/SettingsRoleGate";
 import { LoginModal } from "./components/auth/LoginModal";
 import { AuthGate } from "./components/auth/AuthGate";
+import { ThemeProvider, useTheme } from "./utils/themeContext";
+import { ThemeSwitcher } from "./components/ThemeSwitcher";
 
-export function App() {
+function MainAppContent() {
+  const { theme, themeClasses } = useTheme();
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "application" | "ledger" | "expenses" | "reports" | "settings"
   >("dashboard");
@@ -47,29 +50,47 @@ export function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-kalpurush text-slate-800">
+    <div className={`min-h-screen ${themeClasses.pageBg} flex flex-col font-kalpurush transition-colors duration-150`}>
       {/* Top Navbar */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-xs">
+      <header className={`${themeClasses.headerBg} sticky top-0 z-30 shadow-xs transition-colors duration-150`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between min-h-16 py-2">
             {/* Logo and Center Title */}
             <div className="flex items-center gap-3">
-              <LsfcVectorLogo size={42} />
+              {settings.logoUrl ? (
+                <img
+                  src={settings.logoUrl}
+                  alt={settings.orgNameBn}
+                  className="w-10 h-10 object-contain drop-shadow-xs shrink-0"
+                />
+              ) : (
+                <LsfcVectorLogo size={42} className="drop-shadow-xs" />
+              )}
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="font-bold text-lg font-anek text-[#902A8B] leading-none">
+                  <h1 className={`font-bold text-lg font-anek leading-none ${
+                    theme === "dark" ? "text-purple-300" : "text-[#902A8B]"
+                  }`}>
                     {settings.orgNameBn}
                   </h1>
-                  <span className="bg-emerald-50 text-[#37A448] text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    theme === "dark"
+                      ? "bg-emerald-950 text-emerald-300 border-emerald-800"
+                      : "bg-emerald-50 text-[#37A448] border-emerald-200"
+                  }`}>
                     লাইসেন্স নং: {toBanglaNumber(settings.licenseNo)}
                   </span>
                 </div>
                 {settings.taglineBn && (
-                  <p className="text-[11px] text-[#37A448] font-semibold mt-0.5">
+                  <p className={`text-[11px] font-semibold mt-0.5 ${
+                    theme === "dark" ? "text-emerald-400" : "text-[#37A448]"
+                  }`}>
                     {settings.taglineBn}
                   </p>
                 )}
-                <p className="text-[11px] text-gray-500 mt-0.5">
+                <p className={`text-[11px] mt-0.5 ${
+                  theme === "dark" ? "text-slate-400" : "text-gray-500"
+                }`}>
                   {settings.licensingAuthority} • পরিচালনায়: {settings.partnerOrg}
                 </p>
               </div>
@@ -77,31 +98,48 @@ export function App() {
 
             {/* Quick Actions & Contact */}
             <div className="flex items-center gap-2 sm:gap-3">
-
+              {/* Quick Theme Switcher */}
+              <ThemeSwitcher />
 
               <button
                 id="btn-open-service-calculator"
                 onClick={() => setShowCalculatorModal(true)}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#902A8B] bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition cursor-pointer"
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition cursor-pointer ${
+                  theme === "dark"
+                    ? "bg-slate-800 text-purple-300 border-slate-700 hover:bg-slate-700"
+                    : theme === "white"
+                    ? "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200"
+                    : "bg-purple-50 text-[#902A8B] border-purple-200 hover:bg-purple-100"
+                }`}
               >
                 <Calculator className="w-3.5 h-3.5 text-[#37A448]" />
                 <span>ফি পরীক্ষক</span>
               </button>
 
-              <div className="hidden lg:flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+              <div className={`hidden lg:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border ${
+                theme === "dark"
+                  ? "bg-slate-800 text-slate-300 border-slate-700"
+                  : "bg-gray-50 text-gray-600 border-gray-200"
+              }`}>
                 <Phone className="w-3.5 h-3.5 text-[#37A448]" />
                 <span className="font-medium">হেল্পলাইন:</span>
-                <span className="font-bold text-gray-800">{toBanglaNumber(settings.mobile)}</span>
+                <span className={`font-bold ${theme === "dark" ? "text-slate-100" : "text-gray-800"}`}>
+                  {toBanglaNumber(settings.mobile)}
+                </span>
               </div>
 
               {/* User / Auth State Badge */}
               {currentUser ? (
-                <div className="flex items-center gap-2 bg-purple-50/80 border border-purple-200 py-1 px-2.5 rounded-xl">
+                <div className={`flex items-center gap-2 py-1 px-2.5 rounded-xl border ${
+                  theme === "dark"
+                    ? "bg-slate-800/80 border-slate-700 text-slate-200"
+                    : "bg-purple-50/80 border-purple-200 text-gray-900"
+                }`}>
                   <div className="w-6 h-6 rounded-full bg-[#902A8B] text-white flex items-center justify-center text-[10px] font-bold">
                     {currentUser.displayName.slice(0, 1)}
                   </div>
                   <div className="hidden sm:block text-left">
-                    <div className="text-xs font-bold text-gray-900 leading-none">
+                    <div className={`text-xs font-bold leading-none ${theme === "dark" ? "text-slate-100" : "text-gray-900"}`}>
                       {currentUser.displayName}
                     </div>
                     <div className="text-[10px] text-[#37A448] font-semibold mt-0.5 leading-none">
@@ -116,7 +154,7 @@ export function App() {
                     id="btn-navbar-logout"
                     title="লগআউট করুন"
                     onClick={() => setShowLogoutModal(true)}
-                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition cursor-pointer"
                   >
                     <LogOut className="w-4 h-4" />
                   </button>
@@ -133,81 +171,85 @@ export function App() {
               )}
             </div>
           </div>
+        </div>
 
-          {/* Navigation Tabs */}
-          <nav className="flex space-x-1 sm:space-x-4 border-t border-gray-100 overflow-x-auto py-2">
-            <button
-              id="nav-dashboard"
-              onClick={() => setActiveTab("dashboard")}
-              className={`flex items-center gap-2 px-3 py-2 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
-                activeTab === "dashboard"
-                  ? "bg-[#902A8B] text-white shadow-xs"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4" /> ড্যাশবোর্ড
-            </button>
+        {/* Navigation Tabs Bar */}
+        <div className={`${themeClasses.navBarBg} transition-colors duration-150`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav className="flex space-x-1 sm:space-x-2.5 overflow-x-auto py-1.5">
+              <button
+                id="nav-dashboard"
+                onClick={() => setActiveTab("dashboard")}
+                className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
+                  activeTab === "dashboard"
+                    ? themeClasses.navTabActive
+                    : themeClasses.navTabInactive
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" /> ড্যাশবোর্ড
+              </button>
 
-            <button
-              id="nav-application"
-              onClick={() => setActiveTab("application")}
-              className={`flex items-center gap-2 px-3 py-2 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
-                activeTab === "application"
-                  ? "bg-[#902A8B] text-white shadow-xs"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              }`}
-            >
-              <FilePlus2 className="w-4 h-4" /> নতুন আবেদন ও ইনভয়েস
-            </button>
+              <button
+                id="nav-application"
+                onClick={() => setActiveTab("application")}
+                className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
+                  activeTab === "application"
+                    ? themeClasses.navTabActive
+                    : themeClasses.navTabInactive
+                }`}
+              >
+                <FilePlus2 className="w-4 h-4" /> নতুন আবেদন ও ইনভয়েস
+              </button>
 
-            <button
-              id="nav-ledger"
-              onClick={() => setActiveTab("ledger")}
-              className={`flex items-center gap-2 px-3 py-2 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
-                activeTab === "ledger"
-                  ? "bg-[#902A8B] text-white shadow-xs"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              }`}
-            >
-              <Users className="w-4 h-4" /> ভূমি মালিক লেজার
-            </button>
+              <button
+                id="nav-ledger"
+                onClick={() => setActiveTab("ledger")}
+                className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
+                  activeTab === "ledger"
+                    ? themeClasses.navTabActive
+                    : themeClasses.navTabInactive
+                }`}
+              >
+                <Users className="w-4 h-4" /> ভূমি মালিক লেজার
+              </button>
 
-            <button
-              id="nav-expenses"
-              onClick={() => setActiveTab("expenses")}
-              className={`flex items-center gap-2 px-3 py-2 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
-                activeTab === "expenses"
-                  ? "bg-[#902A8B] text-white shadow-xs"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              }`}
-            >
-              <Wallet className="w-4 h-4" /> দৈনন্দিন খরচ
-            </button>
+              <button
+                id="nav-expenses"
+                onClick={() => setActiveTab("expenses")}
+                className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
+                  activeTab === "expenses"
+                    ? themeClasses.navTabActive
+                    : themeClasses.navTabInactive
+                }`}
+              >
+                <Wallet className="w-4 h-4" /> দৈনন্দিন খরচ
+              </button>
 
-            <button
-              id="nav-reports"
-              onClick={() => setActiveTab("reports")}
-              className={`flex items-center gap-2 px-3 py-2 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
-                activeTab === "reports"
-                  ? "bg-[#902A8B] text-white shadow-xs"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" /> রিপোর্ট ও স্টেটমেন্ট
-            </button>
+              <button
+                id="nav-reports"
+                onClick={() => setActiveTab("reports")}
+                className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
+                  activeTab === "reports"
+                    ? themeClasses.navTabActive
+                    : themeClasses.navTabInactive
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" /> রিপোর্ট ও স্টেটমেন্ট
+              </button>
 
-            <button
-              id="nav-settings"
-              onClick={() => setActiveTab("settings")}
-              className={`flex items-center gap-2 px-3 py-2 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
-                activeTab === "settings"
-                  ? "bg-[#902A8B] text-white shadow-xs"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              }`}
-            >
-              <SettingsIcon className="w-4 h-4" /> সেটিংস ও ব্যাকআপ
-            </button>
-          </nav>
+              <button
+                id="nav-settings"
+                onClick={() => setActiveTab("settings")}
+                className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs font-bold font-anek rounded-lg whitespace-nowrap transition cursor-pointer ${
+                  activeTab === "settings"
+                    ? themeClasses.navTabActive
+                    : themeClasses.navTabInactive
+                }`}
+              >
+                <SettingsIcon className="w-4 h-4" /> সেটিংস ও ব্যাকআপ
+              </button>
+            </nav>
+          </div>
         </div>
       </header>
 
@@ -250,7 +292,6 @@ export function App() {
           <div className="flex items-center gap-4 text-[11px]">
             <span>হেল্পলাইন: {toBanglaNumber(settings.mobile)}</span>
             <span>অফিস সময়: {settings.officeHours}</span>
-            <span className="text-emerald-600 font-bold">প্রমিত ভেক্টর পিডিএফ সক্রিয়</span>
           </div>
         </div>
       </footer>
@@ -308,6 +349,14 @@ export function App() {
 
 
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <ThemeProvider>
+      <MainAppContent />
+    </ThemeProvider>
   );
 }
 

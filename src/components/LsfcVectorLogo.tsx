@@ -7,25 +7,20 @@ interface LogoProps {
 
 export const LsfcVectorLogo: React.FC<LogoProps> = ({ className = "", size = 48 }) => {
   return (
-    <svg
+    <img
+      src="/lsfc-logo.png"
+      alt="LSFC Logo"
       width={size}
       height={size}
-      viewBox="0 0 100 100"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
-      <circle cx="50" cy="50" r="46" fill="#FFFFFF" stroke="#902A8B" strokeWidth="6" />
-      <circle cx="50" cy="50" r="39" fill="none" stroke="#37A448" strokeWidth="2" strokeDasharray="3 3" />
-      {/* Land roof structure */}
-      <path d="M50 18 L76 38 L76 74 L24 74 L24 38 Z" fill="#902A8B" opacity="0.1" />
-      <path d="M50 22 L72 38 L72 70 L28 70 L28 38 Z" stroke="#902A8B" strokeWidth="3.5" strokeLinejoin="round" fill="none" />
-      {/* Cultivated field curves */}
-      <path d="M36 52 C42 46, 58 46, 64 52" stroke="#37A448" strokeWidth="3" strokeLinecap="round" />
-      <path d="M32 60 C40 54, 60 54, 68 60" stroke="#37A448" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="50" cy="38" r="5.5" fill="#EC2324" />
-      <rect x="40" y="68" width="20" height="4" rx="2" fill="#FFF200" />
-    </svg>
+      className={`object-contain inline-block shrink-0 ${className}`}
+      onError={(e) => {
+        const target = e.currentTarget;
+        if (!target.dataset.triedIco) {
+          target.dataset.triedIco = "true";
+          target.src = "/lsfc-logo.ico";
+        }
+      }}
+    />
   );
 };
 

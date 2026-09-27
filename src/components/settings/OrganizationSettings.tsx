@@ -253,9 +253,9 @@ export const OrganizationSettings: React.FC = () => {
                       className="max-h-full max-w-full object-contain"
                     />
                   ) : (
-                    <div className="text-center text-gray-400">
-                      <ImageIcon className="w-6 h-6 mx-auto mb-1 opacity-50 text-[#902A8B]" />
-                      <span className="text-[10px]">কোনো লোগো আপলোড করা হয়নি</span>
+                    <div className="text-center text-gray-500 flex flex-col items-center">
+                      <img src="/lsfc-logo.png" alt="Official LSFC Logo" className="w-12 h-12 object-contain mb-1" />
+                      <span className="text-[10px] text-gray-500 font-medium">অফিসিয়াল LSFC লোগো (ডিফল্ট সক্রিয়)</span>
                     </div>
                   )}
                 </div>
@@ -596,19 +596,9 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="input-org-office-hours-1" className="block font-medium text-gray-700 mb-1">অফিস সময়</label>
+              <label htmlFor="input-org-office-hours" className="block font-medium text-gray-700 mb-1">অফিস সময়</label>
               <input
-                id="input-org-office-hours-1"
-                type="text"
-                value={formData.officeHours}
-                onChange={(e) => handleInputChange("officeHours", e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
-            </div>
-            <div>
-              <label htmlFor="input-org-office-hours-2" className="block font-medium text-gray-700 mb-1">অফিস সময়</label>
-              <input
-                id="input-org-office-hours-2"
+                id="input-org-office-hours"
                 type="text"
                 value={formData.officeHours}
                 onChange={(e) => handleInputChange("officeHours", e.target.value)}

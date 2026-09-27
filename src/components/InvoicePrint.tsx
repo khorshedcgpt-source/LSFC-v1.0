@@ -15,7 +15,7 @@ import {
 import { toBanglaNumber, moneyBn, numberToBanglaWords } from "../utils/bengaliNumbers";
 import { formatInvoiceSubtitle } from "../utils/serviceCalculator";
 import { cleanPhone, findCustomerByPhoneOrNid } from "../utils/customerStore";
-import { LsfcVectorLogo, LsfcOfficialSeal } from "./LsfcVectorLogo";
+import { getEffectiveLogoUrl } from "../utils/defaultLogo";
 
 ensurePdfFontsRegistered();
 
@@ -456,13 +456,13 @@ export const VectorPdfDocument: React.FC<{
           ]}
         >
           {Boolean(
-            (settings.displayOptions?.showLogoOnInvoice !== false && settings.logoUrl) ||
+            (settings.displayOptions?.showLogoOnInvoice !== false && getEffectiveLogoUrl(settings.logoUrl)) ||
             settings.ministryLogoUrl
           ) ? (
             <View style={styles.headerTopRow}>
               <View style={styles.logoSlot}>
-                {settings.displayOptions?.showLogoOnInvoice !== false && settings.logoUrl ? (
-                  <Image src={settings.logoUrl} style={styles.logoImage} />
+                {settings.displayOptions?.showLogoOnInvoice !== false && getEffectiveLogoUrl(settings.logoUrl) ? (
+                  <Image src={getEffectiveLogoUrl(settings.logoUrl)} style={styles.logoImage} />
                 ) : null}
               </View>
               <View style={styles.headerCenterCol}>
@@ -959,11 +959,11 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({
             <div className="flex items-center justify-between mb-1">
               <div className="w-12 h-12 flex items-center justify-start shrink-0">
                 {display.showLogoOnInvoice && (
-                  settings.logoUrl ? (
-                    <img src={settings.logoUrl} alt="Center Logo" className="max-h-11 max-w-11 object-contain print:grayscale" />
-                  ) : (
-                    <LsfcVectorLogo size={40} className="print:grayscale" />
-                  )
+                  <img
+                    src={getEffectiveLogoUrl(settings.logoUrl)}
+                    alt="Center Logo"
+                    className="max-h-11 max-w-11 object-contain print:grayscale"
+                  />
                 )}
               </div>
 
@@ -1184,9 +1184,7 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({
               <div className="h-10 flex items-center justify-center mb-1">
                 {settings.inchargeSignatureUrl ? (
                   <img src={settings.inchargeSignatureUrl} alt="স্বাক্ষর" className="max-h-9 object-contain print:grayscale" />
-                ) : (
-                  <LsfcOfficialSeal size={40} className="opacity-80 print:grayscale" />
-                )}
+                ) : null}
               </div>
               <div className="border-t border-[#902A8B] print:border-black pt-1 w-full">কর্তৃপক্ষের স্বাক্ষর</div>
             </div>
