@@ -464,7 +464,7 @@ export const OrganizationSettings: React.FC = () => {
             </div>
 
             <div className="md:col-span-3 p-3 bg-blue-50/50 border border-blue-200 rounded-lg">
-              <label className="block text-[11px] font-bold text-blue-900 mb-1">নাগরিক পোর্টাল পাসওয়ার্ড</label>
+              <label className="block text-[11px] font-bold text-blue-900 mb-1">প্রাথমিক পাসওয়ার্ড (নাগরিক পোর্টাল)</label>
               <input
                 type="text"
                 value={formData.citizenPortalPassword}
@@ -473,7 +473,7 @@ export const OrganizationSettings: React.FC = () => {
                 className="w-full px-3 py-2 border rounded-lg font-mono text-sm"
               />
               <p className="text-[10px] text-blue-800 mt-1.5 leading-relaxed">
-                পাসওয়ার্ড সেট করা হলে তা সকল রসিদে ছাপা হবে। ফাঁকা রাখলে রসিদে কোনো পাসওয়ার্ড প্রিন্ট হবে না (শুধুমাত্র ইউজার ও পোর্টাল লিংক থাকবে)।
+                এই পাসওয়ার্ড এই কেন্দ্রের সকল ভূমি মালিকের রসিদে ছাপা হবে (সবার জন্য অভিন্ন)। গ্রাহকদের প্রথম লগইনের পর পাসওয়ার্ড পরিবর্তনের পরামর্শ দিন। ফাঁকা রাখলে রসিদে কোনো পাসওয়ার্ড প্রিন্ট হবে না।
               </p>
             </div>
           </div>

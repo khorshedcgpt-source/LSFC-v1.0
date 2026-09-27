@@ -5,7 +5,11 @@ import {
   DEFAULT_INSTITUTION_SETTINGS,
 } from "../../utils/institutionSettings";
 import { readInvoices, writeInvoices } from "../../utils/invoiceStore";
-import { readCustomers, writeCustomers } from "../../utils/customerStore";
+import {
+  readCustomers,
+  readCustomersAtRest,
+  writeCustomers,
+} from "../../utils/customerStore";
 import { readUsers } from "../../utils/authStore";
 import { readExpenses, writeExpenses } from "../../utils/expenseStore";
 import {
@@ -42,7 +46,7 @@ export const BackupRestore: React.FC = () => {
   /** Builds the current full-system snapshot */
   const buildSnapshot = (type?: string) => {
     const invoices = readInvoices();
-    const customers = readCustomers();
+    const customers = readCustomersAtRest();
     // Security: Strip passwordHash and passwordSalt at the export boundary
     const users = readUsers().map(({ passwordHash, passwordSalt, ...safe }) => safe);
     const expenses = readExpenses();
@@ -52,6 +56,11 @@ export const BackupRestore: React.FC = () => {
       version: "2.0.0",
       type: type || "manual",
       timestamp: new Date().toISOString(),
+      security: {
+        nidEncryption: "AES-GCM-256",
+        deviceBound: true,
+        note: "গ্রাহকদের জাতীয় পরিচয়পত্র (NID) নম্বরগুলো ইনস্টলেশন ডিভাইস কি (deviceKey) দ্বারা এনক্রিপ্ট করা। এই ব্যাকআপটি শুধুমাত্র যে কম্পিউটারে তৈরি করা হয়েছে সেখানেই ডিক্রিপ্ট হবে। অন্য কোনো ডিভাইসে রিস্টোর করলে NID নম্বরটি অপাঠ্য/ফাঁকা দেখাবে।",
+      },
       counts: {
         invoices: invoices.length,
         customers: customers.length,
@@ -184,6 +193,11 @@ export const BackupRestore: React.FC = () => {
           setBackupMessage(
             `সফলভাবে রিস্টোর সম্পন্ন হয়েছে (${realCounts.invoices}টি ইনভয়েস, ${realCounts.customers} জন ভূমি মালিক, ${realCounts.expenses}টি খরচ রেকর্ড)${userNoticeText}।`
           );
+
+          // রিস্টোরের পর ডিক্রিপশন ও মেমরি ক্যাশ নতুন স্টার্টআপের মতো ফ্রেশ করার জন্য স্বয়ংক্রিয় রিলোড
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
         }
         // ---------- 2. Legacy settings-only format ----------
         else if (parsed && typeof parsed === "object" && "orgNameBn" in parsed) {
@@ -210,6 +224,11 @@ export const BackupRestore: React.FC = () => {
             ...settingsResult.data,
           });
           setBackupMessage("সেটিংস সফলভাবে রিস্টোর হয়েছে।");
+
+          // প্রাতিষ্ঠানিক সেটিংসের পরিবর্তনসমূহ সিস্টেমে রেন্ডার করার জন্য রিলোড
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
         } else {
           alert("ব্যাকআপ ফাইলের গঠন সঠিক নয় (অবৈধ JSON বা অপরিচিত ফরম্যাট)।");
           return;

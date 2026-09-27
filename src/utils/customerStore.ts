@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { readInstitutionSettings } from "./institutionSettings";
 import { customerRecordSchema } from "./schemas";
+import {
+  encryptField,
+  decryptField,
+  isEncryptedField,
+} from "./fieldCrypto";
 
 // ফেজ-১ (MVP) একটা মাত্র ব্র্যাঞ্চে চলবে — তাই এখন একটাই স্থির মান ব্যবহার হচ্ছে।
 // v1.0-এ প্রকৃত ব্র্যাঞ্চ-এনটিটি এলে এটা সেখান থেকে ডাইনামিকভাবে আসবে; ততক্ষণ
@@ -27,6 +32,65 @@ export interface CustomerRecord {
 
 export const STORAGE_KEY_CUSTOMERS = "lsfc.customers";
 export const CUSTOMERS_UPDATED_EVENT = "lsfc:customers-updated";
+
+// In-memory decrypted cache for instantaneous synchronous queries
+let customerMemoryCache: CustomerRecord[] | null = null;
+// Write-sequence guard to prevent concurrent async encryption races
+let writeSequence = 0;
+
+/**
+ * Asynchronously initializes in-memory customer cache by decrypting NID fields.
+ * Also retroactively migrates any legacy plaintext records on disk.
+ */
+async function initDecryptedCustomerCache(): Promise<CustomerRecord[]> {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CUSTOMERS);
+    if (!raw) {
+      customerMemoryCache = [];
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    const result = customerRecordSchema.array().safeParse(parsed);
+    if (!result.success) {
+      customerMemoryCache = [];
+      return [];
+    }
+
+    let legacyNeedsReencrypt = false;
+    const decrypted = await Promise.all(
+      result.data.map(async (c) => {
+        if (!c.nidNo) return c;
+        if (isEncryptedField(c.nidNo)) {
+          const plainNid = await decryptField(c.nidNo);
+          return { ...c, nidNo: plainNid };
+        } else {
+          legacyNeedsReencrypt = true;
+          return c;
+        }
+      })
+    );
+
+    customerMemoryCache = decrypted;
+
+    // Auto-migrate legacy unencrypted records with sequence guard
+    if (legacyNeedsReencrypt) {
+      writeSequence++;
+      persistEncryptedCustomers(decrypted, writeSequence);
+    }
+
+    window.dispatchEvent(new CustomEvent(CUSTOMERS_UPDATED_EVENT));
+    return decrypted;
+  } catch (err) {
+    console.error("[customerStore] Cache initialization failed:", err);
+    customerMemoryCache = [];
+    return [];
+  }
+}
+
+if (typeof window !== "undefined") {
+  initDecryptedCustomerCache();
+}
 
 // Helper to convert Bengali digits to standard ASCII digits
 export function convertBanglaToAscii(str: string): string {
@@ -66,6 +130,10 @@ export function cleanNid(nid: string | undefined | null): string {
 // Read customers from localStorage
 export function readCustomers(): CustomerRecord[] {
   if (typeof window === "undefined") return [];
+  if (customerMemoryCache !== null) {
+    return customerMemoryCache;
+  }
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CUSTOMERS);
     if (!raw) return [];
@@ -75,10 +143,56 @@ export function readCustomers(): CustomerRecord[] {
       console.error("CustomerRecord schema validation failed:", result.error);
       return [];
     }
-    return result.data;
+    return result.data.map((c) => ({
+      ...c,
+      nidNo: isEncryptedField(c.nidNo) ? "" : c.nidNo,
+    }));
   } catch (error) {
     console.error("Error reading customers from storage:", error);
     return [];
+  }
+}
+
+/**
+ * Returns raw customers directly from localStorage without decrypting nidNo.
+ * Used specifically by BackupRestore to export encrypted-at-rest records.
+ */
+export function readCustomersAtRest(): CustomerRecord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CUSTOMERS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const result = customerRecordSchema.array().safeParse(parsed);
+    return result.success ? result.data : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Asynchronously persists customer records to disk with encrypted NID.
+ * Guarded by sequence number: aborts if a newer write occurred in the interim.
+ */
+async function persistEncryptedCustomers(customers: CustomerRecord[], sequence: number): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const encrypted = await Promise.all(
+      customers.map(async (c) => {
+        if (!c.nidNo) return c;
+        const encNid = await encryptField(c.nidNo);
+        return { ...c, nidNo: encNid };
+      })
+    );
+
+    // If a newer write began while we were encrypting, discard this obsolete write
+    if (sequence !== writeSequence) {
+      return;
+    }
+
+    localStorage.setItem(STORAGE_KEY_CUSTOMERS, JSON.stringify(encrypted));
+  } catch (err) {
+    console.error("[customerStore] Failed to persist encrypted customers:", err);
   }
 }
 
@@ -111,6 +225,12 @@ export function incrementCustomerNumber(customerNumber: string): string {
 export function writeCustomers(customers: CustomerRecord[]): void {
   if (typeof window === "undefined") return;
   try {
+    // 1. Synchronously update in-memory cache
+    customerMemoryCache = customers;
+    // 2. Advance write sequence counter
+    writeSequence++;
+    const currentSequence = writeSequence;
+
     // Duplicate-check safety net: before saving, re-check that no existing record
     // already has that exact customerNumber. If a collision is found, increment and retry (up to 5 attempts).
     const seen = new Set<string>();
@@ -141,7 +261,8 @@ export function writeCustomers(customers: CustomerRecord[]): void {
       return c;
     });
 
-    localStorage.setItem(STORAGE_KEY_CUSTOMERS, JSON.stringify(sanitized));
+    // 3. Persist with encrypted NID using sequence guard
+    persistEncryptedCustomers(sanitized, currentSequence);
     window.dispatchEvent(new CustomEvent(CUSTOMERS_UPDATED_EVENT));
   } catch (error) {
     console.error("Error saving customers to storage:", error);
