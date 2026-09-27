@@ -399,7 +399,7 @@ export const ApplicationForm: React.FC = () => {
   const cartNonCenterTotal = Math.round((cartTotal - cartCenterTotal) * 100) / 100;
   const numericPaid =
     customPaidAmount !== ""
-      ? Math.max(0, parseFloat(customPaidAmount) || 0)
+      ? Math.max(0, Number.parseFloat(customPaidAmount) || 0)
       : cartTotal;
   const remainingGap = Math.max(
     0,
@@ -878,7 +878,7 @@ export const ApplicationForm: React.FC = () => {
                       min="1"
                       max="100"
                       value={serviceQuantity}
-                      onChange={(e) => setServiceQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      onChange={(e) => setServiceQuantity(Math.max(1, Number.parseInt(e.target.value, 10) || 1))}
                       className="w-full text-center px-2 py-2 text-sm font-bold text-[#902A8B] border border-gray-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
                     />
                     <button
@@ -911,7 +911,7 @@ export const ApplicationForm: React.FC = () => {
                         type="number"
                         min="1"
                         value={pages}
-                        onChange={(e) => setPages(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        onChange={(e) => setPages(Math.max(1, Number.parseInt(e.target.value, 10) || 1))}
                         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
                       />
                       <p className="text-[11px] text-gray-500 mt-0.5">২০ পৃষ্ঠার বেশি হলে প্রতি পৃষ্ঠা ৳৩</p>
@@ -929,7 +929,7 @@ export const ApplicationForm: React.FC = () => {
                         type="number"
                         min="1"
                         value={applicants}
-                        onChange={(e) => setApplicants(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        onChange={(e) => setApplicants(Math.max(1, Number.parseInt(e.target.value, 10) || 1))}
                         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
                       />
                       <p className="text-[11px] text-gray-500 mt-0.5">৪ জনের বেশি হলে প্রতি ব্যক্তি/আবেদনকারী ৳১০</p>
@@ -952,7 +952,7 @@ export const ApplicationForm: React.FC = () => {
                         type="number"
                         min="0"
                         value={manualGovtFee}
-                        onChange={(e) => setManualGovtFee(Math.max(0, parseFloat(e.target.value) || 0))}
+                        onChange={(e) => setManualGovtFee(Math.max(0, Number.parseFloat(e.target.value) || 0))}
                         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
                       />
                       <p className="text-[11px] text-gray-500 mt-0.5">এই টাকার অংকটি সরকারি ফি হিসেবে গণ্য হবে।</p>

@@ -118,8 +118,8 @@ export const ExpenseTracker: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    const parsedAmount = Number.parseFloat(amount);
+    if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
       setError("অনুগ্রহ করে সঠিক খরচের পরিমাণ (টাকা) প্রদান করুন।");
       return;
     }

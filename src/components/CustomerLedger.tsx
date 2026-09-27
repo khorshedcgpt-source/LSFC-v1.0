@@ -131,8 +131,8 @@ export const CustomerLedger: React.FC = () => {
     e.preventDefault();
     if (!collectingInvoice) return;
     setDueModalError(null);
-    const amount = parseFloat(dueAmountInput);
-    if (isNaN(amount) || amount <= 0) {
+    const amount = Number.parseFloat(dueAmountInput);
+    if (Number.isNaN(amount) || amount <= 0) {
       setDueModalError("সঠিক টাকার পরিমাণ লিখুন (০ থেকে বড় হতে হবে)।");
       return;
     }

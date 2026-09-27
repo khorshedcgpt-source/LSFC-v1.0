@@ -263,7 +263,7 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
                         min="1"
                         max="200"
                         value={pages}
-                        onChange={(e) => setPages(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        onChange={(e) => setPages(Math.max(1, Number.parseInt(e.target.value, 10) || 1))}
                         className="w-full p-2 border border-purple-300 rounded-lg bg-white font-bold text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
                       />
                       <p className="text-[10px] text-gray-500 mt-1">
@@ -289,7 +289,7 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
                         min="1"
                         max="50"
                         value={applicants}
-                        onChange={(e) => setApplicants(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        onChange={(e) => setApplicants(Math.max(1, Number.parseInt(e.target.value, 10) || 1))}
                         className="w-full p-2 border border-purple-300 rounded-lg bg-white font-bold text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
                       />
                       <p className="text-[10px] text-gray-500 mt-1">
@@ -359,7 +359,7 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
                         type="number"
                         min="0"
                         value={manualGovtFee}
-                        onChange={(e) => setManualGovtFee(Math.max(0, parseFloat(e.target.value) || 0))}
+                        onChange={(e) => setManualGovtFee(Math.max(0, Number.parseFloat(e.target.value) || 0))}
                         className="w-28 p-1.5 border border-gray-300 rounded-lg bg-white text-right font-bold text-gray-800"
                         placeholder="০.০০"
                       />
