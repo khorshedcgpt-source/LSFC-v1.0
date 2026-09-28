@@ -107,31 +107,31 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ? "bg-[#0b0f19] text-slate-100"
         : theme === "white"
         ? "bg-[#fcfcfd] text-slate-900"
-        : "bg-slate-50 text-slate-800",
+        : "bg-[#FCFCFD] text-slate-800",
     headerBg:
       theme === "dark"
         ? "bg-slate-900 border-b border-slate-800 text-slate-100"
         : theme === "white"
         ? "bg-white border-b border-gray-200 text-slate-900"
-        : "bg-white border-b border-gray-200",
+        : "bg-white/95 backdrop-blur-xs border-b border-slate-200/80",
     navBarBg:
       theme === "dark"
         ? "bg-slate-900/95 border-t border-slate-800 shadow-inner"
         : theme === "white"
         ? "bg-slate-100 border-t border-b border-gray-200 shadow-inner"
-        : "bg-[#902A8B] shadow-xs",
+        : "bg-white border-r border-purple-100/80",
     navTabActive:
       theme === "dark"
         ? "bg-purple-600 text-white shadow-xs"
         : theme === "white"
         ? "bg-white text-gray-900 border border-gray-300 shadow-xs font-bold"
-        : "bg-white text-[#902A8B] shadow-xs",
+        : "bg-[#FAF0F9] text-[#902A8B] border border-purple-200/80 shadow-xs font-bold",
     navTabInactive:
       theme === "dark"
         ? "text-slate-300 hover:bg-slate-800 hover:text-white"
         : theme === "white"
         ? "text-gray-600 hover:bg-white hover:text-gray-900"
-        : "text-purple-100/90 hover:bg-white/15 hover:text-white",
+        : "text-slate-600 hover:bg-purple-50/60 hover:text-[#902A8B]",
   };
 
   return (

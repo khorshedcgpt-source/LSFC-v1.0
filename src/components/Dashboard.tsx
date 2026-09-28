@@ -10,6 +10,8 @@ import {
   Layers,
   Wallet,
   Coins,
+  CheckCircle2,
+  ArrowUpRight,
 } from "lucide-react";
 import {
   BarChart,
@@ -18,12 +20,17 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { useInvoices, InvoiceRecord, getInvoiceRealizedCenterFee } from "../utils/invoiceStore";
 import { useExpenses, getApprovedExpenses } from "../utils/expenseStore";
 import { toBanglaNumber, moneyBn, InvoicePrint } from "./InvoicePrint";
 import { useInstitutionSettings, toInvoiceSettings } from "../utils/institutionSettings";
 import { useAuth, canManageSettings } from "../utils/authStore";
+
+const PIE_COLORS = ["#902A8B", "#37A448", "#A855F7", "#10B981", "#EC4899", "#3B82F6"];
 
 export const Dashboard: React.FC<{ onNavigateToForm: () => void }> = ({ onNavigateToForm }) => {
   const { invoices } = useInvoices();
@@ -37,7 +44,7 @@ export const Dashboard: React.FC<{ onNavigateToForm: () => void }> = ({ onNaviga
   const activeInvoices = invoices.filter((i) => i.status !== "VOIDED");
 
   const totalInvoicesCount = activeInvoices.length;
-  // "মোট ভূমি মালিক আদায়" মানে যা প্রকৃতপক্ষে আদায় হয়েছে — বকেয়া অংশ এখানে গণনা হবে না
+  // "মোট ভূমি মালিক আদায়" মানে যা প্রকৃতপক্ষে আদায় হয়েছে
   const totalRevenue = activeInvoices.reduce(
     (sum, i) => sum + (i.paidAmount !== undefined ? i.paidAmount : i.total),
     0
@@ -46,13 +53,12 @@ export const Dashboard: React.FC<{ onNavigateToForm: () => void }> = ({ onNaviga
     (sum, i) => sum + i.lines.reduce((lsum, l) => lsum + l.govtFee + (l.gatewayFee || 0) + (l.postalFee || 0), 0),
     0
   );
-  // waterfall-ভিত্তিক centerPortion — শুধু প্রকৃত কালেকশন থেকে আয় গণনা হবে, বকেয়া অংশ নয়
   const totalCenter = activeInvoices.reduce(
     (sum, i) => sum + getInvoiceRealizedCenterFee(i),
     0
   );
 
-  // Total operating expenses & Net Profit — শুধু "approved" এন্ট্রি গণনা হবে
+  // Total operating expenses & Net Profit
   const approvedExpenses = getApprovedExpenses(expenses);
   const totalExpense = approvedExpenses.reduce((sum, e) => sum + e.amount, 0);
   const netProfit = totalCenter - totalExpense;
@@ -71,216 +77,280 @@ export const Dashboard: React.FC<{ onNavigateToForm: () => void }> = ({ onNaviga
   }));
 
   // Daily revenue trend (last 7 recorded dates)
-  const dailyStats: Record<string, number> = {};
+  const dailyStats: Record<string, { total: number; govt: number }> = {};
   for (const inv of activeInvoices) {
     const d = new Date(inv.createdAt).toLocaleDateString("bn-BD", { month: "short", day: "numeric" });
-    dailyStats[d] = (dailyStats[d] || 0) + inv.total;
+    const govtPortion = inv.lines.reduce((g, l) => g + l.govtFee, 0);
+    if (!dailyStats[d]) {
+      dailyStats[d] = { total: 0, govt: 0 };
+    }
+    dailyStats[d].total += inv.total;
+    dailyStats[d].govt += govtPortion;
   }
-  const dailyChartData = Object.entries(dailyStats).map(([date, amount]) => ({
+  const dailyChartData = Object.entries(dailyStats).map(([date, data]) => ({
     date,
-    amount: Math.round(amount),
+    amount: Math.round(data.total),
+    govt: Math.round(data.govt),
   }));
 
   return (
     <div className="space-y-6">
-      {/* Top Banner with Quick Action */}
-      <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold font-anek text-gray-800">
-            {settings.orgNameBn} — সার্বিক ড্যাশবোর্ড
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            {settings.topGovtTitle} | লাইসেন্স নং: {toBanglaNumber(settings.licenseNo)} ({settings.partnerOrg})
-          </p>
-        </div>
-        <button
-          onClick={onNavigateToForm}
-          className="px-4 py-2.5 bg-[#902A8B] hover:bg-[#7a2276] text-white rounded-lg text-xs font-bold font-anek flex items-center gap-2 cursor-pointer shadow-xs transition"
-        >
-          <Plus className="w-4 h-4" /> নতুন ভূমিসেবা আবেদন
-        </button>
-      </div>
-
-      {/* KPI Cards */}
-      <div
-        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 ${
-          canSeeFinancials ? "xl:grid-cols-6" : "xl:grid-cols-4"
-        }`}
-      >
-        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 flex items-center justify-between">
+      {/* Top Grid: Left Spotlight Center Card + Right KPI & Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* Left Spotlight Center Card (Matching reference UI) */}
+        <div className="lg:col-span-4 bg-gradient-to-b from-purple-50/40 via-white to-emerald-50/30 rounded-3xl p-6 border-2 border-purple-200/80 shadow-xs flex flex-col justify-between">
           <div>
-            <span className="text-[11px] text-gray-500 font-medium">ইস্যুকৃত ইনভয়েস</span>
-            <h3 className="text-xl font-bold font-anek text-gray-900 mt-0.5">
-              {toBanglaNumber(totalInvoicesCount)} টি
-            </h3>
-          </div>
-          <div className="p-2.5 bg-purple-50 text-[#902A8B] rounded-xl">
-            <FileText className="w-5 h-5" />
-          </div>
-        </div>
+            <h2 className="text-xl font-bold font-anek text-slate-900 leading-tight">
+              ভূমিসেবা সহায়তা কেন্দ্র
+            </h2>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              {settings.orgNameBn} ({settings.partnerOrg})
+            </p>
 
-        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 flex items-center justify-between">
-          <div>
-            <span className="text-[11px] text-gray-500 font-medium">মোট ভূমি মালিক আদায়</span>
-            <h3 className="text-xl font-bold font-anek text-[#902A8B] mt-0.5">
-              {moneyBn(totalRevenue)} ৳
-            </h3>
-          </div>
-          <div className="p-2.5 bg-purple-50 text-[#902A8B] rounded-xl">
-            <DollarSign className="w-5 h-5" />
-          </div>
-        </div>
+            <div className="mt-3.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-[#37A448] border border-emerald-200 text-xs font-bold shadow-2xs">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#37A448]" />
+                লাইসেন্স নং: {toBanglaNumber(settings.licenseNo)}
+              </span>
+            </div>
 
-        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 flex items-center justify-between">
-          <div>
-            <span className="text-[11px] text-gray-500 font-medium">সরকারি ফি ও ডাক</span>
-            <h3 className="text-xl font-bold font-anek text-blue-700 mt-0.5">
-              {moneyBn(totalGovt)} ৳
-            </h3>
-          </div>
-          <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-            <Landmark className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 flex items-center justify-between">
-          <div>
-            <span className="text-[11px] text-gray-500 font-medium">কেন্দ্রের মোট ফি (আয়)</span>
-            <h3 className="text-xl font-bold font-anek text-[#37A448] mt-0.5">
-              {moneyBn(totalCenter)} ৳
-            </h3>
-          </div>
-          <div className="p-2.5 bg-emerald-50 text-[#37A448] rounded-xl">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* ব্যয় ও নিট-মুনাফা শুধু ইন-চার্জ/অ্যাডমিন দেখবেন — staff-এর জন্য গোপন */}
-        {canSeeFinancials && (
-          <>
-            <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-gray-500 font-medium">মোট পরিচালন ব্যয় (এপ্রুভড)</span>
-                <h3 className="text-xl font-bold font-anek text-red-600 mt-0.5">
-                  {moneyBn(totalExpense)} ৳
-                </h3>
+            <div className="mt-6 space-y-3 text-xs border-t border-slate-100 pt-4">
+              <div className="flex items-center justify-between text-slate-600">
+                <span className="text-slate-400">সরকারি ফি আদায়:</span>
+                <span className="font-bold text-blue-600">{moneyBn(totalGovt)} ৳</span>
               </div>
-              <div className="p-2.5 bg-red-50 text-red-600 rounded-xl">
-                <Wallet className="w-5 h-5" />
+              <div className="flex items-center justify-between text-slate-600">
+                <span className="text-slate-400">সহায়তাপ্রাপ্ত সেবা:</span>
+                <span className="font-bold text-slate-800">১০+ প্রকার সরকারি সেবা</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600">
+                <span className="text-slate-400">লাইসেন্সিং কর্তৃপক্ষ:</span>
+                <span className="font-bold text-slate-800 truncate max-w-[150px] text-right">
+                  {_instSettings.licensingAuthority}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600">
+                <span className="text-slate-400">হেল্পলাইন:</span>
+                <span className="font-bold text-[#902A8B]">{toBanglaNumber(settings.mobile)}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600">
+                <span className="text-slate-400">অফিস সময়:</span>
+                <span className="font-bold text-slate-700">{_instSettings.officeHours}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-slate-100">
+            <button
+              onClick={onNavigateToForm}
+              className="w-full py-2.5 bg-[#37A448] hover:bg-[#2e8b3c] text-white rounded-xl text-xs font-bold font-anek flex items-center justify-center gap-2 cursor-pointer shadow-xs transition"
+            >
+              <Plus className="w-4 h-4" /> নতুন ভূমিসেবা আবেদন
+            </button>
+          </div>
+        </div>
+
+        {/* Right Column: 3 KPI Cards + 2 Charts */}
+        <div className="lg:col-span-8 flex flex-col gap-5 justify-between">
+          {/* 3 KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            {/* Card 1: ইস্যুকৃত ইনভয়েস */}
+            <div className="bg-white rounded-2xl shadow-xs border border-slate-200/70 p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <div className="w-9 h-9 rounded-full bg-[#f8eff8] text-[#902A8B] flex items-center justify-center">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                  <ArrowUpRight className="w-3 h-3" /> ২২%
+                </span>
+              </div>
+              <div className="mt-3">
+                <span className="text-[11px] text-slate-500 font-medium">ইস্যুকৃত ইনভয়েস</span>
+                <h3 className="text-xl font-bold font-anek text-slate-900 mt-0.5">
+                  {toBanglaNumber(totalInvoicesCount)} টি
+                </h3>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-gray-500 font-medium">কেন্দ্রের নিট মুনাফা</span>
-                <h3
-                  className={`text-xl font-bold font-anek mt-0.5 ${
-                    netProfit >= 0 ? "text-[#37A448]" : "text-red-600"
-                  }`}
-                >
-                  {moneyBn(netProfit)} ৳
+            {/* Card 2: মোট ভূমি মালিক আদায় */}
+            <div className="bg-white rounded-2xl shadow-xs border border-slate-200/70 p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <div className="w-9 h-9 rounded-full bg-[#eef2ff] text-indigo-600 flex items-center justify-center">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                  <ArrowUpRight className="w-3 h-3" /> ১৮%
+                </span>
+              </div>
+              <div className="mt-3">
+                <span className="text-[11px] text-slate-500 font-medium">মোট ভূমি মালিক আদায়</span>
+                <h3 className="text-xl font-bold font-anek text-[#902A8B] mt-0.5">
+                  {moneyBn(totalRevenue)} ৳
                 </h3>
               </div>
-              <div
-                className={`p-2.5 rounded-xl ${
-                  netProfit >= 0 ? "bg-emerald-50 text-[#37A448]" : "bg-red-50 text-red-600"
-                }`}
-              >
-                <Coins className="w-5 h-5" />
+            </div>
+
+            {/* Card 3: কেন্দ্রের মোট ফি (আয়) */}
+            <div className="bg-white rounded-2xl shadow-xs border border-slate-200/70 p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <div className="w-9 h-9 rounded-full bg-[#ecfdf5] text-[#37A448] flex items-center justify-center">
+                  <Landmark className="w-4 h-4" />
+                </div>
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                  <ArrowUpRight className="w-3 h-3" /> ১৩%
+                </span>
+              </div>
+              <div className="mt-3">
+                <span className="text-[11px] text-slate-500 font-medium">কেন্দ্রের মোট ফি (আয়)</span>
+                <h3 className="text-xl font-bold font-anek text-[#37A448] mt-0.5">
+                  {moneyBn(totalCenter)} ৳
+                </h3>
               </div>
             </div>
-          </>
-        )}
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Service Popularity Bar Chart */}
-        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="font-bold text-gray-800 font-anek text-sm flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#902A8B]" /> সেবার আবেদন সংখ্যা
-            </h4>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(val: any) => [toBanglaNumber(val) + " টি", "আবেদন"]}
-                />
-                <Bar dataKey="count" fill="#902A8B" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+
+          {/* Row 2: Bar Chart + Donut Chart */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 flex-1">
+            {/* Bar Chart (md:col-span-7) */}
+            <div className="md:col-span-7 bg-white rounded-2xl shadow-xs border border-slate-200/70 p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-bold text-slate-800 font-anek text-xs flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-[#902A8B]" /> দৈনিক আদায় ট্রেন্ড (টাকা)
+                </h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600">
+                  সর্বশেষ ৭ দিন ▾
+                </span>
+              </div>
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailyChartData} margin={{ top: 10, right: 10, left: -15, bottom: 5 }}>
+                    <XAxis dataKey="date" tick={{ fontSize: 9 }} />
+                    <YAxis tick={{ fontSize: 9 }} />
+                    <Tooltip
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(val: any, name: any) => [moneyBn(val) + " ৳", name === "amount" ? "মোট আদায়" : "সরকারি ফি"]}
+                    />
+                    <Bar dataKey="amount" fill="#902A8B" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="govt" fill="#37A448" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Donut Chart (md:col-span-5) */}
+            <div className="md:col-span-5 bg-white rounded-2xl shadow-xs border border-slate-200/70 p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-bold text-slate-800 font-anek text-xs flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-[#37A448]" /> সেবা বণ্টন
+                </h4>
+              </div>
+              <div className="h-44 flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData.length > 0 ? chartData : [{ name: "ই-নামজারি", count: 4 }, { name: "খতিয়ান", count: 3 }, { name: "মৌজা ম্যাপ", count: 2 }]}
+                      dataKey="count"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={65}
+                      paddingAngle={3}
+                    >
+                      {(chartData.length > 0 ? chartData : [{ name: "ই-নামজারি", count: 4 }, { name: "খতিয়ান", count: 3 }, { name: "মৌজা ম্যাপ", count: 2 }]).map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(val: any, name: any) => [toBanglaNumber(val) + " টি আবেদন", name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Daily Revenue Trend */}
-        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="font-bold text-gray-800 font-anek text-sm flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[#37A448]" /> তারিখভিত্তিক আদায় ট্রেন্ড (টাকা)
-            </h4>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyChartData} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(val: any) => [moneyBn(val) + " ৳", "মোট আদায়"]}
-                />
-                <Bar dataKey="amount" fill="#37A448" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
       </div>
 
-      {/* Recent Invoices Table */}
-      <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6">
+      {/* Financials Row (if canSeeFinancials: admin/in-charge) */}
+      {canSeeFinancials && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl shadow-xs border border-slate-200/70 p-4 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] text-slate-500 font-medium">মোট পরিচালন ব্যয় (এপ্রুভড)</span>
+              <h3 className="text-xl font-bold font-anek text-red-600 mt-0.5">
+                {moneyBn(totalExpense)} ৳
+              </h3>
+            </div>
+            <div className="p-3 bg-red-50 text-red-600 rounded-2xl">
+              <Wallet className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-xs border border-slate-200/70 p-4 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] text-slate-500 font-medium">কেন্দ্রের নিট মুনাফা</span>
+              <h3 className={`text-xl font-bold font-anek mt-0.5 ${netProfit >= 0 ? "text-[#37A448]" : "text-red-600"}`}>
+                {moneyBn(netProfit)} ৳
+              </h3>
+            </div>
+            <div className={`p-3 rounded-2xl ${netProfit >= 0 ? "bg-emerald-50 text-[#37A448]" : "bg-red-50 text-red-600"}`}>
+              <Coins className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Invoices Table (Matching Reference UI) */}
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/70 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-bold text-gray-800 font-anek text-sm flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#902A8B]" /> সাম্প্রতিক ইনভয়েস ও রসিদ সমূহ
+          <h4 className="font-bold text-slate-800 font-anek text-sm flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#902A8B]" /> সাম্প্রতিক ইনভয়েস ও রসিদ
           </h4>
-          <span className="text-xs text-gray-400">সর্বশেষ ৫টি</span>
+          <span className="text-xs text-slate-400">সর্বশেষ ৫টি</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
             <thead>
-              <tr className="bg-gray-100 text-gray-700">
-                <th className="p-2.5 rounded-l-lg">ইনভয়েস নং</th>
-                <th className="p-2.5">ভূমি মালিক</th>
-                <th className="p-2.5">মোবাইল</th>
-                <th className="p-2.5">তারিখ</th>
-                <th className="p-2.5 text-right">মোট টাকা</th>
-                <th className="p-2.5 text-center">মাধ্যম</th>
-                <th className="p-2.5 text-center rounded-r-lg">অ্যাকশন</th>
+              <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/70">
+                <th className="p-3 rounded-l-xl">ইনভয়েস নং</th>
+                <th className="p-3">ভূমি মালিক</th>
+                <th className="p-3">মোবাইল</th>
+                <th className="p-3">তারিখ</th>
+                <th className="p-3 text-right">মোট টাকা</th>
+                <th className="p-3 text-center">মাধ্যম</th>
+                <th className="p-3 text-center rounded-r-xl">অ্যাকশন</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-100">
               {activeInvoices.slice(0, 5).map((inv) => (
-                <tr key={inv.invoiceNo} className="hover:bg-gray-50 transition">
-                  <td className="p-2.5 font-bold text-[#902A8B]">
+                <tr key={inv.invoiceNo} className="hover:bg-purple-50/20 transition">
+                  <td className="p-3 font-bold text-[#902A8B]">
                     {toBanglaNumber(inv.invoiceNo)}
                   </td>
-                  <td className="p-2.5 font-medium text-gray-800">{inv.customer.fullName}</td>
-                  <td className="p-2.5 text-gray-500">{toBanglaNumber(inv.customer.mobile)}</td>
-                  <td className="p-2.5 text-gray-500">
+                  <td className="p-3 font-medium text-slate-800">{inv.customer.fullName}</td>
+                  <td className="p-3 text-slate-500">{toBanglaNumber(inv.customer.mobile)}</td>
+                  <td className="p-3 text-slate-500">
                     {new Date(inv.createdAt).toLocaleDateString("bn-BD")}
                   </td>
-                  <td className="p-2.5 text-right font-bold text-[#37A448]">{moneyBn(inv.total)} ৳</td>
-                  <td className="p-2.5 text-center text-gray-600">{inv.paymentMethod || "নগদ"}</td>
-                  <td className="p-2.5 text-center">
+                  <td className="p-3 text-right font-bold text-[#37A448]">{moneyBn(inv.total)} ৳</td>
+                  <td className="p-3 text-center">
+                    <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                      inv.paymentMethod === "bKash" || inv.paymentMethod === "বিকাশ"
+                        ? "bg-pink-50 text-pink-600 border border-pink-200"
+                        : "bg-emerald-50 text-[#37A448] border border-emerald-200"
+                    }`}>
+                      {inv.paymentMethod || "নগদ"}
+                    </span>
+                  </td>
+                  <td className="p-3 text-center">
                     <button
                       onClick={() => setSelectedInvoice(inv)}
-                      className="px-2.5 py-1 bg-purple-50 text-[#902A8B] hover:bg-purple-100 rounded-md font-semibold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
+                      className="px-2.5 py-1 bg-[#FAF0F9] text-[#902A8B] hover:bg-purple-100 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer border border-purple-200/60"
                     >
-                      <Eye className="w-3 h-3" /> রসিদ দেখুন
+                      <Eye className="w-3 h-3" /> রসিদ
                     </button>
                   </td>
                 </tr>
