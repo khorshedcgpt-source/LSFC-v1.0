@@ -14,6 +14,8 @@ import {
   X,
   AlertCircle,
   Clock,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useCustomers, cleanPhone } from "../utils/customerStore";
 import { useInvoices, InvoiceRecord, recordDuePayment } from "../utils/invoiceStore";
@@ -29,6 +31,7 @@ export const CustomerLedger: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [viewInvoice, setViewInvoice] = useState<InvoiceRecord | null>(null);
+  const [isCustomerListOpen, setIsCustomerListOpen] = useState(true);
 
   // Due collection modal state
   const [collectingInvoice, setCollectingInvoice] = useState<InvoiceRecord | null>(null);
@@ -168,133 +171,174 @@ export const CustomerLedger: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Top Header */}
-      <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl shadow-xs border border-gray-100 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <Users className="w-6 h-6 text-[#902A8B]" />
-            <h2 className="text-xl font-bold font-anek text-gray-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-purple-50 text-[#902A8B] flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <h2 className="text-lg font-bold font-anek text-gray-800">
               ভূমি মালিক খতিয়ান ও লেনদেন লেজার
             </h2>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 mt-1 pl-10.5">
             ভূমি মালিক অনুযায়ী পূর্ববর্তী সকল ভূমিসেবার ইনভয়েস ইতিহাস ও হিসাব বিবরণী
           </p>
         </div>
+
+        <div className="flex items-center gap-2">
+          {/* Toggle Button for Left Customer Directory Panel */}
+          <button
+            type="button"
+            onClick={() => setIsCustomerListOpen(!isCustomerListOpen)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+              !isCustomerListOpen
+                ? "bg-purple-50 text-[#902A8B] border-purple-200 hover:bg-purple-100"
+                : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+            }`}
+            title={isCustomerListOpen ? "মালিক তালিকা প্যানেল সংকুচিত করুন" : "মালিক তালিকা প্যানেল খুলুন"}
+          >
+            {isCustomerListOpen ? (
+              <>
+                <PanelLeftClose className="w-3.5 h-3.5 text-[#902A8B]" />
+                <span className="hidden sm:inline">প্যানেল লুকান (ফুলস্ক্রিন)</span>
+              </>
+            ) : (
+              <>
+                <PanelLeftOpen className="w-3.5 h-3.5 text-[#902A8B]" />
+                <span>মালিক তালিকা ({toBanglaNumber(filteredCustomers.length)})</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Customer Directory / Search */}
-        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-5 flex flex-col h-[750px]">
-          <div className="mb-3">
-            <label htmlFor="input-ledger-search" className="block text-xs font-semibold text-gray-700 mb-1.5">
-              ভূমি মালিক অনুসন্ধান (নাম / মোবাইল / এনআইডি)
-            </label>
-            <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-              <input
-                id="input-ledger-search"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="খুঁজুন..."
-                className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
-              />
+      {/* Main Wide-Screen Container */}
+      <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
+        {/* Left Column: Compact Customer Directory / Search (~260px) */}
+        {isCustomerListOpen && (
+          <div className="w-full lg:w-[260px] xl:w-[270px] shrink-0 bg-white rounded-2xl shadow-xs border border-gray-100 p-3.5 flex flex-col h-[750px]">
+            <div className="mb-2.5">
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="input-ledger-search" className="block text-[11px] font-bold text-gray-700">
+                  মালিক অনুসন্ধান
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomerListOpen(false)}
+                  className="hidden lg:block text-gray-400 hover:text-gray-600 p-0.5 rounded cursor-pointer"
+                  title="প্যানেল লুকান"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                <input
+                  id="input-ledger-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="নাম / মোবাইল / NID..."
+                  className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#902A8B] bg-slate-50/60"
+                />
+              </div>
+            </div>
+
+            {/* Filter Tabs: All vs Due Only */}
+            <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-lg mb-2.5">
+              <button
+                type="button"
+                onClick={() => setFilterOnlyDue(false)}
+                className={`flex-1 py-1 text-[11px] font-bold font-anek rounded-md transition cursor-pointer text-center ${
+                  !filterOnlyDue
+                    ? "bg-white text-[#902A8B] shadow-xs"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                সকল ({toBanglaNumber(customers.length)})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterOnlyDue(true)}
+                className={`flex-1 py-1 text-[11px] font-bold font-anek rounded-md transition cursor-pointer text-center flex items-center justify-center gap-1 ${
+                  filterOnlyDue
+                    ? "bg-[#EC2324] text-white shadow-xs"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <Coins className="w-3 h-3" />
+                বকেয়া ({toBanglaNumber(customersWithDuePhoneSet.size)})
+              </button>
+            </div>
+
+            <p className="text-[10px] text-gray-400 mb-2 font-medium px-1">
+              মোট {toBanglaNumber(filteredCustomers.length)} জন পাওয়া গেছে
+            </p>
+
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5">
+              {filteredCustomers.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 text-xs border border-dashed rounded-lg">
+                  {filterOnlyDue ? "কোনো বকেয়া নেই।" : "কাউকে পাওয়া যায়নি।"}
+                </div>
+              ) : (
+                filteredCustomers.map((c) => {
+                  const isSelected = activeCustomer?.id === c.id || activeCustomer?.mobile === c.mobile;
+                  const cInvs = invoices.filter(
+                    (inv) => cleanPhone(inv.customer.mobile) === cleanPhone(c.mobile) && inv.status !== "VOIDED"
+                  );
+                  const cDue = cInvs.reduce((sum, inv) => sum + (inv.dueAmount ?? 0), 0);
+
+                  return (
+                    <button
+                      key={c.id || c.mobile}
+                      type="button"
+                      onClick={() => setSelectedCustomerId(c.id || c.mobile)}
+                      className={`w-full text-left p-2.5 rounded-xl border transition cursor-pointer flex flex-col gap-0.5 ${
+                        isSelected
+                          ? "border-purple-300 bg-purple-50/70 ring-1 ring-[#902A8B]"
+                          : "border-gray-200/80 hover:border-purple-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-gray-900 truncate max-w-[150px]">{c.fullName}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {cDue > 0 && (
+                            <span className="text-[9px] bg-red-100 text-[#EC2324] font-bold px-1.5 py-0.2 rounded-full">
+                              বাকি ৳{moneyBn(cDue)}
+                            </span>
+                          )}
+                          <span className="text-[9px] bg-purple-100 text-[#902A8B] px-1.5 py-0.2 rounded-full font-medium">
+                            {toBanglaNumber(cInvs.length)}টি
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                        <Phone className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+                        <span>{toBanglaNumber(c.mobile)}</span>
+                      </div>
+                      {c.address && (
+                        <div className="flex items-center gap-1 text-[10px] text-gray-400 truncate">
+                          <MapPin className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+                          <span className="truncate">{c.address}</span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
+        )}
 
-          {/* Filter Tabs: All vs Due Only */}
-          <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-lg mb-3">
-            <button
-              type="button"
-              onClick={() => setFilterOnlyDue(false)}
-              className={`flex-1 py-1.5 text-[11px] font-bold font-anek rounded-md transition cursor-pointer text-center ${
-                !filterOnlyDue
-                  ? "bg-white text-[#902A8B] shadow-xs"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              সকল ({toBanglaNumber(customers.length)})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterOnlyDue(true)}
-              className={`flex-1 py-1.5 text-[11px] font-bold font-anek rounded-md transition cursor-pointer text-center flex items-center justify-center gap-1 ${
-                filterOnlyDue
-                  ? "bg-[#EC2324] text-white shadow-xs"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              <Coins className="w-3 h-3" />
-              বকেয়া আছে ({toBanglaNumber(customersWithDuePhoneSet.size)})
-            </button>
-          </div>
-
-          <p className="text-[11px] text-gray-400 mb-2 font-medium">
-            মোট পাওয়া গেছে {toBanglaNumber(filteredCustomers.length)} জন ভূমি মালিক
-          </p>
-
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-            {filteredCustomers.length === 0 ? (
-              <div className="text-center py-10 text-gray-400 text-xs border border-dashed rounded-lg">
-                {filterOnlyDue ? "কোনো ভূমি মালিকের বকেয়া নেই।" : "কোনো ভূমি মালিক পাওয়া যায়নি।"}
-              </div>
-            ) : (
-              filteredCustomers.map((c) => {
-                const isSelected = activeCustomer?.id === c.id || activeCustomer?.mobile === c.mobile;
-                const cInvs = invoices.filter(
-                  (inv) => cleanPhone(inv.customer.mobile) === cleanPhone(c.mobile) && inv.status !== "VOIDED"
-                );
-                const cDue = cInvs.reduce((sum, inv) => sum + (inv.dueAmount ?? 0), 0);
-
-                return (
-                  <button
-                    key={c.id || c.mobile}
-                    type="button"
-                    onClick={() => setSelectedCustomerId(c.id || c.mobile)}
-                    className={`w-full text-left p-3 rounded-lg border transition cursor-pointer flex flex-col gap-1 ${
-                      isSelected
-                        ? "border-[#902A8B] bg-purple-50/70 ring-1 ring-[#902A8B]"
-                        : "border-gray-200 hover:border-purple-200 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-gray-900">{c.fullName}</span>
-                      <div className="flex items-center gap-1">
-                        {cDue > 0 && (
-                          <span className="text-[10px] bg-red-100 text-[#EC2324] font-bold px-1.5 py-0.5 rounded-full">
-                            বাকি ৳{moneyBn(cDue)}
-                          </span>
-                        )}
-                        <span className="text-[10px] bg-purple-100 text-[#902A8B] px-1.5 py-0.5 rounded-full font-medium">
-                          {toBanglaNumber(cInvs.length)}টি
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                      <Phone className="w-3 h-3 text-gray-400" />
-                      <span>{toBanglaNumber(c.mobile)}</span>
-                    </div>
-                    {c.address && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-gray-400 truncate">
-                        <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        <span className="truncate">{c.address}</span>
-                      </div>
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Right 2 Columns: Customer Ledger Profile & Invoice Table */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Right Expansive Column: Wide-Screen Customer Ledger Profile & Invoice Table */}
+        <div className="flex-1 min-w-0 w-full space-y-5">
           {activeCustomer ? (
             <>
               {/* Customer Profile Banner */}
-              <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6">
+              <div className="bg-white rounded-2xl shadow-xs border border-gray-100 p-5 sm:p-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4 mb-4">
                   <div>
                     <h3 className="text-lg font-bold font-anek text-gray-900">
@@ -323,7 +367,7 @@ export const CustomerLedger: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => window.print()}
-                      className="px-3 py-1.5 border border-[#902A8B] text-[#902A8B] hover:bg-purple-50 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition"
+                      className="px-3.5 py-1.5 border border-purple-200 text-[#902A8B] hover:bg-purple-50 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
                     >
                       <Printer className="w-3.5 h-3.5" /> লেজার প্রিন্ট
                     </button>
@@ -331,23 +375,23 @@ export const CustomerLedger: React.FC = () => {
                 </div>
 
                 {/* Financial Summary Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="bg-purple-50/70 border border-purple-200 rounded-lg p-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                  <div className="bg-purple-50/60 border border-purple-100 rounded-xl p-3.5">
                     <span className="text-[11px] text-gray-600 block">মোট সেবা বিল</span>
-                    <span className="text-base font-bold font-anek text-[#902A8B]">
+                    <span className="text-lg font-bold font-anek text-[#902A8B]">
                       {moneyBn(totalInvoiced)} ৳
                     </span>
                   </div>
-                  <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg p-3">
+                  <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3.5">
                     <span className="text-[11px] text-gray-600 block">মোট পরিশোধ/আদায়</span>
-                    <span className="text-base font-bold font-anek text-[#37A448]">
+                    <span className="text-lg font-bold font-anek text-[#37A448]">
                       {moneyBn(totalPaid)} ৳
                     </span>
                   </div>
-                  <div className={`border rounded-lg p-3 flex flex-col justify-between ${totalDue > 0 ? "bg-amber-50/90 border-2 border-amber-400" : "bg-gray-50 border-gray-200"}`}>
+                  <div className={`border rounded-xl p-3.5 flex flex-col justify-between ${totalDue > 0 ? "bg-amber-50/90 border-2 border-amber-300" : "bg-gray-50/70 border-gray-200/80"}`}>
                     <div>
                       <span className="text-[11px] text-gray-700 font-semibold block">মোট অবশিষ্ট বকেয়া</span>
-                      <span className={`text-base font-bold font-anek ${totalDue > 0 ? "text-amber-900" : "text-gray-500"}`}>
+                      <span className={`text-lg font-bold font-anek ${totalDue > 0 ? "text-amber-900" : "text-gray-500"}`}>
                         {moneyBn(totalDue)} ৳
                       </span>
                     </div>
@@ -355,18 +399,18 @@ export const CustomerLedger: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenCollectDue(dueInvoices[0])}
-                        className="mt-2 w-full py-1.5 px-2 bg-[#EC2324] hover:bg-red-700 text-white rounded text-[11px] font-bold font-anek flex items-center justify-center gap-1 shadow-xs transition cursor-pointer"
+                        className="mt-2 w-full py-1.5 px-2 bg-[#EC2324] hover:bg-red-700 text-white rounded-lg text-[11px] font-bold font-anek flex items-center justify-center gap-1 shadow-xs transition cursor-pointer"
                       >
                         <Coins className="w-3.5 h-3.5" /> বকেয়া আদায় করুন
                       </button>
                     )}
                   </div>
-                  <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-3">
+                  <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3.5">
                     <span className="text-[11px] text-gray-600 block">কেন্দ্র ও সরকারি ফি</span>
-                    <span className="text-base font-bold font-anek text-blue-700">
+                    <span className="text-lg font-bold font-anek text-blue-700">
                       {moneyBn(totalCenterFee)} ৳
                     </span>
-                    <span className="text-[10px] text-gray-500 block">
+                    <span className="text-[10px] text-gray-500 block mt-0.5">
                       সরকারি: {moneyBn(totalGovtFee)} ৳
                     </span>
                   </div>
@@ -375,7 +419,7 @@ export const CustomerLedger: React.FC = () => {
 
               {/* Success Feedback Notification */}
               {successFeedback && (
-                <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl p-3.5 flex items-center justify-between gap-3 animate-in fade-in">
+                <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-2xl p-3.5 flex items-center justify-between gap-3 animate-in fade-in">
                   <div className="flex items-center gap-2 text-xs font-semibold">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>{successFeedback}</span>
@@ -383,7 +427,7 @@ export const CustomerLedger: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSuccessFeedback(null)}
-                    className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
+                    className="text-emerald-700 hover:text-emerald-900 text-xs font-bold cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -392,7 +436,7 @@ export const CustomerLedger: React.FC = () => {
 
               {/* Active Due Alert & Direct Action Strip */}
               {totalDue > 0 && dueInvoices.length > 0 && (
-                <div className="bg-linear-to-r from-amber-50 to-orange-50 border-2 border-amber-400 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="bg-linear-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
                   <div className="flex items-start gap-2.5">
                     <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                     <div>
@@ -407,7 +451,7 @@ export const CustomerLedger: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleOpenCollectDue(dueInvoices[0])}
-                    className="px-4 py-2 bg-[#EC2324] hover:bg-red-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0"
+                    className="px-4 py-2 bg-[#EC2324] hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0"
                   >
                     <Coins className="w-4 h-4" /> বকেয়া পরিশোধ হালনাগাদ
                   </button>
@@ -415,7 +459,7 @@ export const CustomerLedger: React.FC = () => {
               )}
 
               {/* Transactions History */}
-              <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6">
+              <div className="bg-white rounded-2xl shadow-xs border border-gray-100 p-5 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-bold text-gray-800 font-anek text-sm flex items-center gap-2">
                     <FileText className="w-4 h-4 text-[#902A8B]" />
