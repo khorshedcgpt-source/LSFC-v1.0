@@ -14,8 +14,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Search,
-  Bell,
 } from "lucide-react";
 import { Dashboard } from "./components/Dashboard";
 import { ApplicationForm } from "./components/ApplicationForm";
@@ -35,6 +33,8 @@ import { LoginModal } from "./components/auth/LoginModal";
 import { AuthGate } from "./components/auth/AuthGate";
 import { ThemeProvider, useTheme } from "./utils/themeContext";
 import { ThemeSwitcher } from "./components/ThemeSwitcher";
+import { ToastProvider } from "./components/common/Toast";
+import { ConfirmDialog } from "./components/common/ConfirmDialog";
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: "ড্যাশবোর্ড",
@@ -433,26 +433,8 @@ function MainAppContent() {
               </h2>
             </div>
 
-            {/* Center / Right: Search Bar & Actions matching reference UI */}
+            {/* Center / Right: Actions matching reference UI */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              {/* Search Bar */}
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100/90 dark:bg-slate-800/90 rounded-full border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-500 w-44 lg:w-56">
-                <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="bg-transparent border-none outline-hidden w-full text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400"
-                />
-              </div>
-
-              {/* Notification Bell */}
-              <button
-                type="button"
-                aria-label="বিজ্ঞপ্তি"
-                className="p-1.5 rounded-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-              >
-                <Bell className="w-4 h-4" />
-              </button>
 
               <button
                 id="btn-open-service-calculator"

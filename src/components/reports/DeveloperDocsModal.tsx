@@ -15,12 +15,24 @@ export const DeveloperDocsModal: React.FC<{ onClose: () => void }> = ({ onClose 
     .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
   const renderServiceFeeDetails = (svc: ServiceSettingItem) => {
+    const govtFee = svc.govtFee ?? 0;
+    const postalFee = svc.postalFee ?? 0;
+    const centerFee = svc.centerFee ?? 0;
+    const gatewayFee =
+      svc.gatewayFee !== undefined && svc.gatewayFee > 0
+        ? svc.gatewayFee
+        : (govtFee + postalFee) > 0
+        ? Math.round((govtFee + postalFee) * 0.01 * 100) / 100
+        : 0;
+
     if (svc.id === "svc-namjari" || svc.builtInType === "namjari") {
       return (
         <div className="text-xs space-y-1 text-gray-700">
-          <p>• <span className="font-semibold">সরকারি কোর্ট ও নোটিশ ফি:</span> ৳{toBanglaNumber(svc.govtFee || 70)}</p>
-          <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳০.৭০</p>
-          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee)} (২০ পৃষ্ঠা ও ৪ আবেদনকারী পর্যন্ত)</p>
+          <p>• <span className="font-semibold">সরকারি কোর্ট ও নোটিশ ফি:</span> ৳{toBanglaNumber(govtFee)}</p>
+          {gatewayFee > 0 && (
+            <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳{toBanglaNumber(gatewayFee.toFixed(2))}</p>
+          )}
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(centerFee)} (২০ পৃষ্ঠা ও ৪ আবেদনকারী পর্যন্ত)</p>
           <p className="text-[11px] text-gray-500">• অতিরিক্ত পৃষ্ঠা: ৳৩/পৃষ্ঠা, অতিরিক্ত আবেদনকারী: ৳১০/জন</p>
         </div>
       );
@@ -30,73 +42,87 @@ export const DeveloperDocsModal: React.FC<{ onClose: () => void }> = ({ onClose 
         <div className="text-xs space-y-1 text-gray-700">
           <p>• <span className="font-semibold">সরকারি কর:</span> জমির পরিমাণ, ধরন ও বকেয়া বছর অনুযায়ী অনলাইন হিসাব</p>
           <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> সরকারি নিয়মানুযায়ী প্রযোজ্য</p>
-          <div className="bg-purple-50/70 p-2 rounded-lg border border-purple-100 text-[11px] space-y-0.5 mt-1.5">
-            <p className="font-semibold text-[#902A8B]">কেন্দ্র সেবা মাশুল ধাপসমূহ:</p>
-            {svc.subServices?.map((sub) => (
-              <p key={sub.id}>• {sub.label}: ৳{toBanglaNumber(sub.fee)}</p>
-            ))}
-          </div>
+          {svc.subServices && svc.subServices.length > 0 && (
+            <div className="bg-purple-50/70 p-2 rounded-lg border border-purple-100 text-[11px] space-y-0.5 mt-1.5">
+              <p className="font-semibold text-[#902A8B]">কেন্দ্র সেবা মাশুল ধাপসমূহ:</p>
+              {svc.subServices.map((sub) => (
+                <p key={sub.id}>• {sub.label}: ৳{toBanglaNumber(sub.fee)}</p>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
     if (svc.id === "svc-khatian") {
       return (
         <div className="text-xs space-y-1 text-gray-700">
-          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳{toBanglaNumber(svc.govtFee || 120)} (অনলাইন/কাউন্টার কপি)</p>
-          <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳১.২০</p>
-          <p>• <span className="font-semibold">ডাকযোগে বিতরণ মাশুল:</span> ৳৪০ (শুধুমাত্র ডাকযোগে ডেলিভারি নিলে)</p>
-          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 100)}</p>
+          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳{toBanglaNumber(govtFee)} (অনলাইন/কাউন্টার কপি)</p>
+          {gatewayFee > 0 && (
+            <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳{toBanglaNumber(gatewayFee.toFixed(2))}</p>
+          )}
+          {postalFee > 0 && (
+            <p>• <span className="font-semibold">ডাকযোগে বিতরণ মাশুল:</span> ৳{toBanglaNumber(postalFee)} (শুধুমাত্র ডাকযোগে ডেলিভারি নিলে)</p>
+          )}
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(centerFee)}</p>
         </div>
       );
     }
     if (svc.id === "svc-dcr") {
       return (
         <div className="text-xs space-y-1 text-gray-700">
-          <p>• <span className="font-semibold">সরকারি ডিসিআর ফি:</span> ৳{toBanglaNumber(svc.govtFee || 1100)}</p>
-          <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳১১.০০</p>
-          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 100)}</p>
+          <p>• <span className="font-semibold">সরকারি ডিসিআর ফি:</span> ৳{toBanglaNumber(govtFee)}</p>
+          {gatewayFee > 0 && (
+            <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳{toBanglaNumber(gatewayFee.toFixed(2))}</p>
+          )}
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(centerFee)}</p>
         </div>
       );
     }
     if (svc.id === "svc-miss-case") {
       return (
         <div className="text-xs space-y-1 text-gray-700">
-          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳০ (প্রযোজ্য নয়)</p>
-          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 100)} (ফ্ল্যাট ফি)</p>
-          <div className="bg-purple-50/70 p-2 rounded-lg border border-purple-100 text-[11px] space-y-0.5 mt-1.5">
-            <p className="font-semibold text-[#902A8B]">সংশোধনের আওতাভুক্ত বিষয়সমূহ:</p>
-            {svc.subServices?.map((sub) => (
-              <p key={sub.id}>• {sub.label}</p>
-            ))}
-          </div>
+          <p>• <span className="font-semibold">সরকারি ফি:</span> {govtFee > 0 ? `৳${toBanglaNumber(govtFee)}` : "৳০ (প্রযোজ্য নয়)"}</p>
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(centerFee)} (ফ্ল্যাট ফি)</p>
+          {svc.subServices && svc.subServices.length > 0 && (
+            <div className="bg-purple-50/70 p-2 rounded-lg border border-purple-100 text-[11px] space-y-0.5 mt-1.5">
+              <p className="font-semibold text-[#902A8B]">সংশোধনের আওতাভুক্ত বিষয়সমূহ:</p>
+              {svc.subServices.map((sub) => (
+                <p key={sub.id}>• {sub.label}</p>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
     if (svc.id === "svc-mouza") {
       return (
         <div className="text-xs space-y-1 text-gray-700">
-          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳{toBanglaNumber(svc.govtFee || 545)}</p>
-          <p>• <span className="font-semibold">সরকারি ডাক মাশুল:</span> ৳১১০ (ডাকযোগে ডেলিভারি হলে)</p>
-          <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳৫.৪৫</p>
-          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 100)}</p>
+          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳{toBanglaNumber(govtFee)}</p>
+          {postalFee > 0 && (
+            <p>• <span className="font-semibold">সরকারি ডাক মাশুল:</span> ৳{toBanglaNumber(postalFee)} (ডাকযোগে ডেলিভারি হলে)</p>
+          )}
+          {gatewayFee > 0 && (
+            <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳{toBanglaNumber(gatewayFee.toFixed(2))}</p>
+          )}
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(centerFee)}</p>
         </div>
       );
     }
     if (svc.id === "svc-citizen-profile") {
       return (
         <div className="text-xs space-y-1 text-gray-700">
-          <p>• <span className="font-semibold">সরকারি ফি:</span> ৳০ (সরকারি কোনো ফি নেই)</p>
-          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee || 50)}</p>
+          <p>• <span className="font-semibold">সরকারি ফি:</span> {govtFee > 0 ? `৳${toBanglaNumber(govtFee)}` : "৳০ (সরকারি কোনো ফি নেই)"}</p>
+          <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(centerFee)}</p>
           <p className="text-[11px] text-gray-500">• সেবা আওতা: এনআইডি ভেরিফিকেশন, প্রোফাইল তৈরি ও ওটিপি সংযোগ</p>
         </div>
       );
     }
     return (
       <div className="text-xs space-y-1 text-gray-700">
-        <p>• <span className="font-semibold">সরকারি ফি:</span> {svc.govtFee > 0 ? `৳${toBanglaNumber(svc.govtFee)}` : "প্রযোজ্য নয় (৳০)"}</p>
-        {svc.gatewayFee > 0 && <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> প্রযোজ্য</p>}
-        {svc.postalFee > 0 && <p>• <span className="font-semibold">ডাক মাশুল:</span> ৳{toBanglaNumber(svc.postalFee)}</p>}
-        <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(svc.centerFee)}</p>
+        <p>• <span className="font-semibold">সরকারি ফি:</span> {govtFee > 0 ? `৳${toBanglaNumber(govtFee)}` : "প্রযোজ্য নয় (৳০)"}</p>
+        {gatewayFee > 0 && <p>• <span className="font-semibold">১% গেটওয়ে ফি:</span> ৳{toBanglaNumber(gatewayFee.toFixed(2))}</p>}
+        {postalFee > 0 && <p>• <span className="font-semibold">ডাক মাশুল:</span> ৳{toBanglaNumber(postalFee)}</p>}
+        <p>• <span className="font-semibold text-[#37A448]">কেন্দ্র সেবা ফি:</span> ৳{toBanglaNumber(centerFee)}</p>
         {svc.subServices && svc.subServices.length > 0 && (
           <div className="bg-purple-50/70 p-2 rounded-lg border border-purple-100 text-[11px] space-y-0.5 mt-1.5">
             <p className="font-semibold text-[#902A8B]">সাব-সেবাসমূহ:</p>

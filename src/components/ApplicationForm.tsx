@@ -30,6 +30,8 @@ import {
 } from "../utils/invoiceStore";
 import { toBanglaNumber, moneyBn, InvoicePrint } from "./InvoicePrint";
 import { useInstitutionSettings, toInvoiceSettings, ServiceSettingItem } from "../utils/institutionSettings";
+import { getLocalDateString } from "../utils/dateUtils";
+import { PAYMENT_METHODS } from "../utils/paymentMethods";
 
 export const ApplicationForm: React.FC = () => {
   const { settings: institutionSettings } = useInstitutionSettings();
@@ -105,8 +107,8 @@ export const ApplicationForm: React.FC = () => {
           selectedItem.serviceName && selectedItem.serviceName !== SERVICE_DEFINITIONS[builtInType].nameBn
             ? selectedItem.serviceName
             : undefined,
-        pages,
-        applicants,
+        pages: builtInType === "namjari" ? pages : undefined,
+        applicants: builtInType === "namjari" ? applicants : undefined,
         applicationTrackingNo: trackingNo,
         quantity: safeQty,
       })
@@ -355,6 +357,13 @@ export const ApplicationForm: React.FC = () => {
     setSelectedServiceId(id);
     setSelectedSubtitleIndex(0);
     const item = activeServices.find((s) => s.id === id);
+    if (item?.builtInType === "namjari") {
+      setPages(20);
+      setApplicants(4);
+    } else {
+      setPages(1);
+      setApplicants(1);
+    }
     if (item?.subServices && item.subServices.length > 0) {
       const defaultSub = item.subServices.find((s) => s.id === "online_submit") || item.subServices[0];
       setSelectedSubServiceIds([defaultSub.id]);
@@ -381,6 +390,13 @@ export const ApplicationForm: React.FC = () => {
     setCartLines((prev) => [...prev, currentCalculation]);
     setTrackingNo("");
     setServiceQuantity(1);
+    if (builtInType === "namjari") {
+      setPages(20);
+      setApplicants(4);
+    } else {
+      setPages(1);
+      setApplicants(1);
+    }
     if (hasSubServices) {
       const defaultSub = selectedItem?.subServices?.find((s) => s.id === "online_submit") || selectedItem?.subServices?.[0];
       setSelectedSubServiceIds(defaultSub ? [defaultSub.id] : []);
@@ -502,7 +518,7 @@ export const ApplicationForm: React.FC = () => {
               {
                 id: `pay-${Date.now()}`,
                 amount: Math.round(finalPaid * 100) / 100,
-                date: new Date().toISOString().slice(0, 10),
+                date: getLocalDateString(),
                 receivedBy: paymentMethod,
                 note: "প্রাথমিক জমা",
               },
@@ -1262,10 +1278,11 @@ export const ApplicationForm: React.FC = () => {
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
               >
-                <option value="নগদ (Cash)">নগদ (Cash)</option>
-                <option value="বিকাশ (bKash)">বিকাশ (bKash)</option>
-                <option value="নগদ (Nagad)">নগদ (Nagad)</option>
-                <option value="রকেট (Rocket)">রকেট (Rocket)</option>
+                {PAYMENT_METHODS.map((pm) => (
+                  <option key={pm.id} value={pm.id}>
+                    {pm.fullNameBn}
+                  </option>
+                ))}
               </select>
             </div>
 

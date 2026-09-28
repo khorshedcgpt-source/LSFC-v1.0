@@ -28,6 +28,7 @@ import {
   EXPENSE_CATEGORY_LABELS,
   EXPENSE_STATUS_LABELS,
 } from "../../utils/expenseStore";
+import { getLocalDateString } from "../../utils/dateUtils";
 import { toBanglaNumber, moneyBn } from "../InvoicePrint";
 import { useAuth, canManageSettings } from "../../utils/authStore";
 import { LoginModal } from "../auth/LoginModal";
@@ -48,9 +49,7 @@ export const ExpenseTracker: React.FC = () => {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("stationery");
   const [amount, setAmount] = useState<string>("");
-  const [date, setDate] = useState<string>(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [date, setDate] = useState<string>(() => getLocalDateString());
   const [paidBy, setPaidBy] = useState("");
   const [voucherNumber, setVoucherNumber] = useState("");
   const [voucherIssuerName, setVoucherIssuerName] = useState("");

@@ -3,6 +3,7 @@ import { upsertCustomer, generateUUIDv7, DEFAULT_BRANCH_ID } from "./customerSto
 import { invoiceRecordSchema } from "./backupSchema";
 import { randomIdSuffix } from "./idGen";
 import { addMoney, subtractMoney, toPaisa, toTaka } from "./money";
+import { getLocalDateString } from "./dateUtils";
 
 export interface InvoiceCustomer {
   customerId?: string;
@@ -234,7 +235,7 @@ export function writeAuditLog(entries: InvoiceAuditLogEntry[]): boolean {
     const entriesToKeep = entries.slice(0, AUDIT_LOG_CAPACITY);
     const excessEntriesToArchive = entries.slice(AUDIT_LOG_CAPACITY);
 
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const dateStr = getLocalDateString();
     const filename = `LSFC-AuditLog-Archive-${dateStr}.json`;
 
     const downloadSuccess = downloadAuditArchive(excessEntriesToArchive, filename);
@@ -497,8 +498,8 @@ export function addStoredInvoice(invoice: InvoiceRecord): InvoiceRecord {
     (!completeInvoice.collections || completeInvoice.collections.length === 0)
   ) {
     const dateStr = completeInvoice.createdAt
-      ? completeInvoice.createdAt.slice(0, 10)
-      : new Date().toISOString().slice(0, 10);
+      ? getLocalDateString(completeInvoice.createdAt)
+      : getLocalDateString();
     const portions = allocateCollectionWaterfall(completeInvoice, initialPaid);
     completeInvoice.collections = [
       {
@@ -554,7 +555,7 @@ export function recordDuePayment(
 
   const newPaid = addMoney(currentPaid, payment.amount);
   const newDue = Math.max(0, subtractMoney(currentDue, payment.amount));
-  const paymentDate = payment.date || new Date().toISOString().slice(0, 10);
+  const paymentDate = payment.date || getLocalDateString();
 
   const installment: PaymentInstallment = {
     id: `pay-${Date.now()}-${randomIdSuffix(4)}`,

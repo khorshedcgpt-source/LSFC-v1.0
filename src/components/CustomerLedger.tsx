@@ -21,6 +21,7 @@ import { useCustomers, cleanPhone } from "../utils/customerStore";
 import { useInvoices, InvoiceRecord, recordDuePayment } from "../utils/invoiceStore";
 import { toBanglaNumber, moneyBn, InvoicePrint } from "./InvoicePrint";
 import { useInstitutionSettings, toInvoiceSettings } from "../utils/institutionSettings";
+import { getLocalDateString } from "../utils/dateUtils";
 
 export const CustomerLedger: React.FC = () => {
   const { customers } = useCustomers();
@@ -36,7 +37,7 @@ export const CustomerLedger: React.FC = () => {
   // Due collection modal state
   const [collectingInvoice, setCollectingInvoice] = useState<InvoiceRecord | null>(null);
   const [dueAmountInput, setDueAmountInput] = useState<string>("");
-  const [paymentDate, setPaymentDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [paymentDate, setPaymentDate] = useState<string>(() => getLocalDateString());
   const [receivedByInput, setReceivedByInput] = useState<string>("নগদ ক্যাশ");
   const [paymentNote, setPaymentNote] = useState<string>("বকেয়া কিস্তি আদায়");
   const [dueModalError, setDueModalError] = useState<string | null>(null);
@@ -124,7 +125,7 @@ export const CustomerLedger: React.FC = () => {
   const handleOpenCollectDue = (inv: InvoiceRecord) => {
     setCollectingInvoice(inv);
     setDueAmountInput(inv.dueAmount ? String(inv.dueAmount) : "");
-    setPaymentDate(new Date().toISOString().slice(0, 10));
+    setPaymentDate(getLocalDateString());
     setReceivedByInput("নগদ ক্যাশ");
     setPaymentNote("বকেয়া কিস্তি আদায়");
     setDueModalError(null);

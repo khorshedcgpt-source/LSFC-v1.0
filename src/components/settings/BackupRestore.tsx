@@ -16,6 +16,7 @@ import {
   backupSnapshotSchema,
   institutionSettingsPartialSchema,
 } from "../../utils/backupSchema";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 export const BackupRestore: React.FC = () => {
   const { settings, saveSettings } = useInstitutionSettings();
@@ -79,7 +80,7 @@ export const BackupRestore: React.FC = () => {
 
   const handleExportFullBackup = () => {
     const payload = buildSnapshot("manual");
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const dateStr = getLocalDateString();
     downloadJson(payload, `LSFC-Complete-Backup-${dateStr}.json`);
     setBackupMessage("সম্পূর্ণ ব্যাকআপ ফাইল সফলভাবে ডাউনলোড হয়েছে।");
     setTimeout(() => setBackupMessage(null), 4000);

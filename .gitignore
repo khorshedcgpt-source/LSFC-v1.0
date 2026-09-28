@@ -36,3 +36,6 @@ trimmed.*
 src_backup_*
 docs_backup_*
 audit-reports/
+
+# AI Studio workspace
+.aistudio/
