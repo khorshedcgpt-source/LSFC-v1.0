@@ -183,7 +183,7 @@ export const DEFAULT_INSTITUTION_SETTINGS: InstitutionSettings = {
     {
       id: "svc-namjari",
       builtInType: "namjari",
-      serviceName: "মিউটেশন/জমাখারিজ/জমাএকত্রিকরণ (ই-নামজারি)",
+      serviceName: "মিউটেশন/জমাখারিজ/জমাএকত্রিকরণ-এর আবেদন",
       govtFee: 70,
       gatewayFee: 1,
       postalFee: 0,
@@ -400,6 +400,12 @@ export function readInstitutionSettings(): InstitutionSettings {
             subServiceFeeMode: "flat" as const,
             centerFee: s.centerFee && s.centerFee > 0 ? s.centerFee : 100,
             subServices: (s.subServices || []).map((sub) => ({ ...sub, fee: 0 })),
+          };
+        }
+        if (s.id === "svc-namjari" && (s.serviceName === "মিউটেশন/জমাখারিজ/জমাএকত্রিকরণ (ই-নামজারি)" || s.serviceName === "ই-নামজারি আবেদন")) {
+          return {
+            ...s,
+            serviceName: "মিউটেশন/জমাখারিজ/জমাএকত্রিকরণ-এর আবেদন",
           };
         }
         return s;
