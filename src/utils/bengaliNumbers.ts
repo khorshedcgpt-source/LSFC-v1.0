@@ -18,6 +18,15 @@ export function toBanglaNumber(
     .replace(/\d/g, (d) => bnDigits[Number.parseInt(d, 10)]);
 }
 
+export function toAsciiNumber(num: string | number | undefined | null): string {
+  if (num === undefined || num === null) return "";
+  const bnToAscii: Record<string, string> = {
+    "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4",
+    "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9",
+  };
+  return num.toString().replace(/[০-৯]/g, (d) => bnToAscii[d] || d);
+}
+
 export function moneyBn(val: number | undefined | null): string {
   if (val === undefined || val === null) return "০";
   return toBanglaNumber(val.toLocaleString("en-US"));

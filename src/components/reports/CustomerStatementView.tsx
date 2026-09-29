@@ -7,8 +7,10 @@ import { CustomerStatementPdfDocument, buildCustomerStatementFields } from "./Cu
 import { shapeTree } from "../../utils/banglaShaping/shapeTree";
 import { downloadPureVectorPdf } from "../../utils/printPdfUtils";
 import { toBanglaNumber, moneyBn } from "../InvoicePrint";
+import { useToast } from "../common/Toast";
 
 export const CustomerStatementView: React.FC = () => {
+  const { showToast } = useToast();
   const { customers } = useCustomers();
   const { invoices } = useInvoices();
   const { settings: _instSettings } = useInstitutionSettings();
@@ -113,7 +115,7 @@ export const CustomerStatementView: React.FC = () => {
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (err) {
       console.error("Print statement via PDF failed:", err);
-      alert("পিডিএফ তৈরি করতে সমস্যা হয়েছে।");
+      showToast("পিডিএফ তৈরি করতে সমস্যা হয়েছে।", "error");
     } finally {
       setIsPdfLoading(false);
     }

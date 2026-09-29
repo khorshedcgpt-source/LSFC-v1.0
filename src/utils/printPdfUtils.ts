@@ -1,5 +1,6 @@
 import { pdf } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
+import { globalToast } from "../components/common/Toast";
 
 export async function downloadPureVectorPdf(documentElement: ReactElement, filename: string): Promise<void> {
   try {
@@ -16,7 +17,7 @@ export async function downloadPureVectorPdf(documentElement: ReactElement, filen
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   } catch (error) {
     console.error("Error generating vector PDF for download:", error);
-    alert("পিডিএফ তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।");
+    globalToast.error("পিডিএফ তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।");
   }
 }
 
@@ -29,7 +30,7 @@ export async function openPdfInNewTab(documentElement: ReactElement): Promise<vo
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   } catch (error) {
     console.error("Error generating vector PDF for preview:", error);
-    alert("পিডিএফ প্রিভিউ লোড করতে ব্যর্থ হয়েছে।");
+    globalToast.error("পিডিএফ প্রিভিউ লোড করতে ব্যর্থ হয়েছে।");
   }
 }
 

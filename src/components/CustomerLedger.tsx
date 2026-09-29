@@ -22,17 +22,22 @@ import { useInvoices, InvoiceRecord, recordDuePayment } from "../utils/invoiceSt
 import { toBanglaNumber, moneyBn, InvoicePrint } from "./InvoicePrint";
 import { useInstitutionSettings, toInvoiceSettings } from "../utils/institutionSettings";
 import { getLocalDateString } from "../utils/dateUtils";
+import { Modal } from "./common/Modal";
+import { ConfirmDialog } from "./common/ConfirmDialog";
+import { useToast } from "./common/Toast";
 
 export const CustomerLedger: React.FC = () => {
   const { customers } = useCustomers();
   const { invoices, voidInvoice } = useInvoices();
   const { settings: _instSettings } = useInstitutionSettings();
   const settings = toInvoiceSettings(_instSettings);
+  const { showToast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [viewInvoice, setViewInvoice] = useState<InvoiceRecord | null>(null);
   const [isCustomerListOpen, setIsCustomerListOpen] = useState(true);
+  const [voidConfirmInvoiceNo, setVoidConfirmInvoiceNo] = useState<string | null>(null);
 
   // Due collection modal state
   const [collectingInvoice, setCollectingInvoice] = useState<InvoiceRecord | null>(null);
@@ -166,9 +171,7 @@ export const CustomerLedger: React.FC = () => {
   };
 
   const handleVoidInvoice = (invoiceNo: string) => {
-    if (confirm(`আপনি কি নিশ্চিত যে ইনভয়েস নং ${toBanglaNumber(invoiceNo)} বাতিল করতে চান?`)) {
-      voidInvoice(invoiceNo);
-    }
+    setVoidConfirmInvoiceNo(invoiceNo);
   };
 
   return (
@@ -606,185 +609,192 @@ export const CustomerLedger: React.FC = () => {
 
       {/* Due Collection Modal */}
       {collectingInvoice && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="bg-[#902A8B] text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Coins className="w-5 h-5 text-amber-300" />
-                <h3 className="font-bold text-base font-anek">বকেয়া / অবশিষ্ট টাকা আদায়</h3>
+        <Modal
+          isOpen={Boolean(collectingInvoice)}
+          onClose={() => setCollectingInvoice(null)}
+          title="বকেয়া / অবশিষ্ট টাকা আদায়"
+          icon={<Coins className="w-5 h-5 text-[#FFF200]" />}
+          maxWidth="md"
+        >
+          <form onSubmit={handleConfirmDuePayment} className="space-y-4">
+            {/* Due Modal Error Banner */}
+            {dueModalError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-center gap-1.5 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{dueModalError}</span>
               </div>
-              <button
-                onClick={() => setCollectingInvoice(null)}
-                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+            )}
+
+            {/* Invoice Switcher (if customer has multiple due invoices) */}
+            {dueInvoices.length > 1 && (
+              <div>
+                <label htmlFor="select-ledger-due-invoice" className="block text-xs font-semibold text-gray-700 mb-1">
+                  বকেয়া ইনভয়েস নির্বাচন করুন:
+                </label>
+                <select
+                  id="select-ledger-due-invoice"
+                  value={collectingInvoice.invoiceNo}
+                  onChange={(e) => {
+                    const selected = dueInvoices.find((i) => i.invoiceNo === e.target.value);
+                    if (selected) handleOpenCollectDue(selected);
+                  }}
+                  className="w-full px-3 py-1.5 border border-purple-300 rounded-lg text-xs font-semibold text-gray-800 bg-purple-50/50 focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+                >
+                  {dueInvoices.map((inv) => (
+                    <option key={inv.invoiceNo} value={inv.invoiceNo}>
+                      ইনভয়েস #{toBanglaNumber(inv.invoiceNo)} — বকেয়া {moneyBn(inv.dueAmount ?? 0)} ৳ ({inv.lines.map((l) => l.serviceName).join(", ")})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Invoice & Customer Info Box */}
+            <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between items-center border-b border-purple-100 pb-1.5">
+                <span className="text-gray-600 font-medium">ইনভয়েস নং:</span>
+                <span className="font-bold text-[#902A8B]">{toBanglaNumber(collectingInvoice.invoiceNo)}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-purple-100 pb-1.5">
+                <span className="text-gray-600 font-medium">ভূমি মালিক:</span>
+                <span className="font-semibold text-gray-900">{collectingInvoice.customer.fullName}</span>
+              </div>
+              <div className="flex justify-between items-center text-gray-700">
+                <span>মোট বিল:</span>
+                <span className="font-semibold">{moneyBn(collectingInvoice.total)} ৳</span>
+              </div>
+              <div className="flex justify-between items-center text-gray-700">
+                <span>পূর্বে পরিশোধিত:</span>
+                <span className="font-semibold">{moneyBn(collectingInvoice.paidAmount ?? collectingInvoice.total)} ৳</span>
+              </div>
+              <div className="flex justify-between items-center text-sm font-bold text-amber-900 bg-amber-100/70 px-2 py-1 rounded-md">
+                <span>বর্তমান অবশিষ্ট বকেয়া:</span>
+                <span className="font-anek">{moneyBn(collectingInvoice.dueAmount ?? 0)} ৳</span>
+              </div>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleConfirmDuePayment} className="p-5 space-y-4">
-              {/* Due Modal Error Banner */}
-              {dueModalError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-center gap-1.5 font-medium">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                  <span>{dueModalError}</span>
-                </div>
-              )}
-
-              {/* Invoice Switcher (if customer has multiple due invoices) */}
-              {dueInvoices.length > 1 && (
-                <div>
-                  <label htmlFor="select-ledger-due-invoice" className="block text-xs font-semibold text-gray-700 mb-1">
-                    বকেয়া ইনভয়েস নির্বাচন করুন:
-                  </label>
-                  <select
-                    id="select-ledger-due-invoice"
-                    value={collectingInvoice.invoiceNo}
-                    onChange={(e) => {
-                      const selected = dueInvoices.find((i) => i.invoiceNo === e.target.value);
-                      if (selected) handleOpenCollectDue(selected);
-                    }}
-                    className="w-full px-3 py-1.5 border border-purple-300 rounded-lg text-xs font-semibold text-gray-800 bg-purple-50/50 focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
-                  >
-                    {dueInvoices.map((inv) => (
-                      <option key={inv.invoiceNo} value={inv.invoiceNo}>
-                        ইনভয়েস #{toBanglaNumber(inv.invoiceNo)} — বকেয়া {moneyBn(inv.dueAmount ?? 0)} ৳ ({inv.lines.map((l) => l.serviceName).join(", ")})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Invoice & Customer Info Box */}
-              <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3.5 space-y-2 text-xs">
-                <div className="flex justify-between items-center border-b border-purple-100 pb-1.5">
-                  <span className="text-gray-600 font-medium">ইনভয়েস নং:</span>
-                  <span className="font-bold text-[#902A8B]">{toBanglaNumber(collectingInvoice.invoiceNo)}</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-purple-100 pb-1.5">
-                  <span className="text-gray-600 font-medium">ভূমি মালিক:</span>
-                  <span className="font-semibold text-gray-900">{collectingInvoice.customer.fullName}</span>
-                </div>
-                <div className="flex justify-between items-center text-gray-700">
-                  <span>মোট বিল:</span>
-                  <span className="font-semibold">{moneyBn(collectingInvoice.total)} ৳</span>
-                </div>
-                <div className="flex justify-between items-center text-gray-700">
-                  <span>পূর্বে পরিশোধিত:</span>
-                  <span className="font-semibold">{moneyBn(collectingInvoice.paidAmount ?? collectingInvoice.total)} ৳</span>
-                </div>
-                <div className="flex justify-between items-center text-sm font-bold text-amber-900 bg-amber-100/70 px-2 py-1 rounded-md">
-                  <span>বর্তমান অবশিষ্ট বকেয়া:</span>
-                  <span className="font-anek">{moneyBn(collectingInvoice.dueAmount ?? 0)} ৳</span>
-                </div>
+            {/* Payment History Log (if any) */}
+            {collectingInvoice.paymentHistory && collectingInvoice.paymentHistory.length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50 text-[11px] space-y-1">
+                <span className="font-bold text-gray-700 block">পূর্ববর্তী জমার বিবরণ:</span>
+                {collectingInvoice.paymentHistory.map((h, i) => (
+                  <div key={i} className="flex justify-between text-gray-600">
+                    <span>• {new Date(h.date).toLocaleDateString("bn-BD")} ({h.note || h.receivedBy})</span>
+                    <span className="font-semibold text-[#37A448]">{moneyBn(h.amount)} ৳</span>
+                  </div>
+                ))}
               </div>
+            )}
 
-              {/* Payment History Log (if any) */}
-              {collectingInvoice.paymentHistory && collectingInvoice.paymentHistory.length > 0 && (
-                <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50 text-[11px] space-y-1">
-                  <span className="font-bold text-gray-700 block">পূর্ববর্তী জমার বিবরণ:</span>
-                  {collectingInvoice.paymentHistory.map((h, i) => (
-                    <div key={i} className="flex justify-between text-gray-600">
-                      <span>• {new Date(h.date).toLocaleDateString("bn-BD")} ({h.note || h.receivedBy})</span>
-                      <span className="font-semibold text-[#37A448]">{moneyBn(h.amount)} ৳</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+            {/* Amount Input */}
+            <div>
+              <label htmlFor="input-ledger-collect-amount" className="block text-xs font-bold text-gray-700 mb-1">
+                এখন জমার পরিমাণ (৳):
+              </label>
+              <div className="relative">
+                <input
+                  id="input-ledger-collect-amount"
+                  type="number"
+                  step="any"
+                  min="1"
+                  max={collectingInvoice.dueAmount ?? 0}
+                  value={dueAmountInput}
+                  onChange={(e) => setDueAmountInput(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setDueAmountInput(String(collectingInvoice.dueAmount ?? 0))}
+                  className="absolute right-2 top-2 text-[10px] bg-purple-100 hover:bg-purple-200 text-[#902A8B] px-2 py-0.5 rounded font-bold transition cursor-pointer"
+                >
+                  সম্পূর্ণ টাকা
+                </button>
+              </div>
+            </div>
 
-              {/* Amount Input */}
+            {/* Date Input */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="input-ledger-collect-amount" className="block text-xs font-bold text-gray-700 mb-1">
-                  এখন জমার পরিমাণ (৳):
-                </label>
-                <div className="relative">
-                  <input
-                    id="input-ledger-collect-amount"
-                    type="number"
-                    step="any"
-                    min="1"
-                    max={collectingInvoice.dueAmount ?? 0}
-                    value={dueAmountInput}
-                    onChange={(e) => setDueAmountInput(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setDueAmountInput(String(collectingInvoice.dueAmount ?? 0))}
-                    className="absolute right-2 top-2 text-[10px] bg-purple-100 hover:bg-purple-200 text-[#902A8B] px-2 py-0.5 rounded font-bold transition cursor-pointer"
-                  >
-                    সম্পূর্ণ টাকা
-                  </button>
-                </div>
-              </div>
-
-              {/* Date Input */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="input-ledger-payment-date" className="block text-xs font-semibold text-gray-700 mb-1">
-                    আদায়ের তারিখ:
-                  </label>
-                  <input
-                    id="input-ledger-payment-date"
-                    type="date"
-                    value={paymentDate}
-                    onChange={(e) => setPaymentDate(e.target.value)}
-                    required
-                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="input-ledger-received-by" className="block text-xs font-semibold text-gray-700 mb-1">
-                    মাধ্যম / গ্রহণকারী:
-                  </label>
-                  <input
-                    id="input-ledger-received-by"
-                    type="text"
-                    value={receivedByInput}
-                    onChange={(e) => setReceivedByInput(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
-                  />
-                </div>
-              </div>
-
-              {/* Note Input */}
-              <div>
-                <label htmlFor="input-ledger-note" className="block text-xs font-semibold text-gray-700 mb-1">
-                  মন্তব্য / নোট (ঐচ্ছিক):
+                <label htmlFor="input-ledger-payment-date" className="block text-xs font-semibold text-gray-700 mb-1">
+                  আদায়ের তারিখ:
                 </label>
                 <input
-                  id="input-ledger-note"
-                  type="text"
-                  placeholder="যেমন: অবশিষ্ট কিস্তি পরিশোধ"
-                  value={paymentNote}
-                  onChange={(e) => setPaymentNote(e.target.value)}
+                  id="input-ledger-payment-date"
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  required
                   className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
                 />
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setCollectingInvoice(null)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl text-xs font-semibold transition cursor-pointer"
-                >
-                  বাতিল
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-[#37A448] hover:bg-green-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" /> আদায় সম্পন্ন করুন
-                </button>
+              <div>
+                <label htmlFor="input-ledger-received-by" className="block text-xs font-semibold text-gray-700 mb-1">
+                  মাধ্যম / গ্রহণকারী:
+                </label>
+                <input
+                  id="input-ledger-received-by"
+                  type="text"
+                  value={receivedByInput}
+                  onChange={(e) => setReceivedByInput(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+                />
               </div>
-            </form>
-          </div>
-        </div>
+            </div>
+
+            {/* Note Input */}
+            <div>
+              <label htmlFor="input-ledger-note" className="block text-xs font-semibold text-gray-700 mb-1">
+                মন্তব্য / নোট (ঐচ্ছিক):
+              </label>
+              <input
+                id="input-ledger-note"
+                type="text"
+                placeholder="যেমন: অবশিষ্ট কিস্তি পরিশোধ"
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setCollectingInvoice(null)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl text-xs font-semibold transition cursor-pointer"
+              >
+                বাতিল
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-[#37A448] hover:bg-green-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" /> আদায় সম্পন্ন করুন
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
+
+      {/* Void Invoice Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={Boolean(voidConfirmInvoiceNo)}
+        onCancel={() => setVoidConfirmInvoiceNo(null)}
+        onConfirm={() => {
+          if (voidConfirmInvoiceNo) {
+            voidInvoice(voidConfirmInvoiceNo);
+            showToast(`ইনভয়েস নং #${toBanglaNumber(voidConfirmInvoiceNo)} সফলভাবে বাতিল করা হয়েছে।`, "success");
+            setVoidConfirmInvoiceNo(null);
+          }
+        }}
+        title="ইনভয়েস বাতিল নিশ্চিতকরণ"
+        message={`আপনি কি নিশ্চিত যে ইনভয়েস নং #${toBanglaNumber(voidConfirmInvoiceNo || "")} বাতিল করতে চান? বাতিলকৃত ইনভয়েস হিসাব থেকে বাদ দেওয়া হবে।`}
+        confirmLabel="হ্যাঁ, বাতিল করুন"
+        cancelLabel="ফিরে যান"
+        variant="danger"
+      />
     </div>
   );
 };

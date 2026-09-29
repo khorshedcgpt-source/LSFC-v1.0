@@ -16,6 +16,7 @@ import { toBanglaNumber, moneyBn, numberToBanglaWords } from "../utils/bengaliNu
 import { formatInvoiceSubtitle } from "../utils/serviceCalculator";
 import { cleanPhone, findCustomerByPhoneOrNid } from "../utils/customerStore";
 import { getEffectiveLogoUrl } from "../utils/defaultLogo";
+import { useToast } from "./common/Toast";
 
 ensurePdfFontsRegistered();
 
@@ -807,6 +808,7 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({
   onClose,
   settings = readSettings(),
 }) => {
+  const { showToast } = useToast();
   const [downloading, setDownloading] = useState(false);
 
   const handleDownloadVectorPdf = async () => {
@@ -819,8 +821,10 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({
         <VectorPdfDocument invoice={invoice} settings={settings} shapedFields={shapedFields} />,
         `Invoice-${invoice.invoiceNo}.pdf`
       );
+      showToast("পিডিএফ সফলভাবে ডাউনলোড হয়েছে।", "success");
     } catch (err) {
       console.error("Vector PDF generation error:", err);
+      showToast("পিডিএফ ডাউনলোড করতে সমস্যা হয়েছে।", "error");
     } finally {
       setDownloading(false);
     }
@@ -853,6 +857,7 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({
         a.click();
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 5000);
+        showToast("পিডিএফ ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে।", "success");
         return;
       }
 
@@ -865,11 +870,12 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({
         a.href = url;
         a.download = `Invoice-${invoice.invoiceNo}.pdf`;
         a.click();
+        showToast("পপ-আপ ব্লক থাকায় ফাইলটি ডাউনলোড করা হয়েছে।", "info");
       }
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (err) {
       console.error("Print via PDF failed:", err);
-      alert("পিডিএফ তৈরি করতে সমস্যা হয়েছে।");
+      showToast("পিডিএফ তৈরি করতে সমস্যা হয়েছে।", "error");
     } finally {
       setDownloading(false);
     }

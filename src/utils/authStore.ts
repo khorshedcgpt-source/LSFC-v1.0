@@ -26,6 +26,26 @@ export interface LocalUser {
   createdAt: string;
 }
 
+export const ROLE_LABELS: Record<UserRole, { label: string; badgeColor: string }> = {
+  admin: {
+    label: "সুপার অ্যাডমিন",
+    badgeColor: "bg-purple-50 text-[#902A8B] border-purple-200",
+  },
+  branch_incharge: {
+    label: "কেন্দ্রের ইন-চার্জ",
+    badgeColor: "bg-emerald-50 text-[#37A448] border-emerald-200",
+  },
+  staff: {
+    label: "অপারেটর / কর্মী",
+    badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
+  },
+};
+
+export function getRoleLabel(role?: UserRole | null): string {
+  if (!role) return "অপারেটর / কর্মী";
+  return ROLE_LABELS[role]?.label || "অপারেটর / কর্মী";
+}
+
 export const STORAGE_KEY_USERS = "lsfc.users";
 export const STORAGE_KEY_SESSION = "lsfc.session";
 export const AUTH_UPDATED_EVENT = "lsfc:auth-updated";

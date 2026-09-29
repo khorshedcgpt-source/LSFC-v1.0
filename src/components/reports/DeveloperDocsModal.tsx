@@ -1,7 +1,8 @@
 import React from "react";
-import { X, BookOpen, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { BookOpen, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { useInstitutionSettings, DEFAULT_INSTITUTION_SETTINGS, ServiceSettingItem } from "../../utils/institutionSettings";
 import { toBanglaNumber } from "../../utils/bengaliNumbers";
+import { Modal } from "../common/Modal";
 
 export const DeveloperDocsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { settings } = useInstitutionSettings();
@@ -136,32 +137,15 @@ export const DeveloperDocsModal: React.FC<{ onClose: () => void }> = ({ onClose 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col border border-gray-200 overflow-hidden text-xs">
-        {/* Header */}
-        <div className="bg-[#902A8B] text-white px-5 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <BookOpen className="w-5 h-5 text-[#FFF200]" />
-            <div>
-              <h3 className="font-bold text-sm sm:text-base font-anek leading-tight">
-                সিস্টেম নীতিমালা ও অনুমোদিত ফি চার্ট
-              </h3>
-              <p className="text-[11px] text-purple-100 font-kalpurush">
-                অনুমোদিত সরকারি ফি, কেন্দ্র সেবা মাশুল ও নীতিমালার বিবরণী
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-white/20 rounded-lg text-white transition cursor-pointer"
-            title="বন্ধ করুন"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content Body */}
-        <div className="p-5 overflow-y-auto space-y-4 text-gray-700 leading-relaxed font-kalpurush">
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="সিস্টেম নীতিমালা ও অনুমোদিত ফি চার্ট"
+      subtitle="অনুমোদিত সরকারি ফি, কেন্দ্র সেবা মাশুল ও নীতিমালার বিবরণী"
+      icon={<BookOpen className="w-5 h-5 text-[#FFF200]" />}
+      maxWidth="3xl"
+    >
+      <div className="space-y-4 text-gray-700 leading-relaxed font-kalpurush">
           <section className="bg-purple-50 p-4 rounded-xl border border-purple-200">
             <h4 className="font-bold text-sm text-[#902A8B] mb-2 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#37A448]" />
@@ -226,8 +210,7 @@ export const DeveloperDocsModal: React.FC<{ onClose: () => void }> = ({ onClose 
               টাইটেল ও ব্র্যান্ডিং-এর জন্য <strong>Anek Bangla (Bold 700)</strong> এবং বিবরণী ও লেজারের তথ্যের জন্য <strong>Kalpurush (400)</strong> সুনির্দিষ্ট রয়েছে।
             </p>
           </section>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 };

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from "lucide-react";
 
 export type ToastType = "success" | "error" | "warning" | "info";
@@ -37,6 +37,17 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     },
     [removeToast]
   );
+
+  useEffect(() => {
+    const handleCustomToast = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.message) {
+        showToast(detail.message, detail.type, detail.duration);
+      }
+    };
+    window.addEventListener("app-toast", handleCustomToast);
+    return () => window.removeEventListener("app-toast", handleCustomToast);
+  }, [showToast]);
 
   return (
     <ToastContext.Provider value={{ showToast, removeToast }}>
@@ -112,3 +123,17 @@ export function useToast(): ToastContextValue {
   }
   return ctx;
 }
+
+export const globalToast = {
+  show: (message: string, type: ToastType = "info", duration = 3500) => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("app-toast", { detail: { message, type, duration } })
+      );
+    }
+  },
+  success: (message: string, duration = 3500) => globalToast.show(message, "success", duration),
+  error: (message: string, duration = 4000) => globalToast.show(message, "error", duration),
+  warning: (message: string, duration = 3500) => globalToast.show(message, "warning", duration),
+  info: (message: string, duration = 3500) => globalToast.show(message, "info", duration),
+};

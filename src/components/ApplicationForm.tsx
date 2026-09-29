@@ -1,17 +1,15 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   FileText,
-  User,
-  Phone,
   CreditCard,
   Plus,
   Trash2,
-  CheckCircle2,
   Printer,
-  MapPin,
-  RotateCcw,
   AlertCircle,
+  RotateCcw,
 } from "lucide-react";
+import { ConfirmDialog } from "./common/ConfirmDialog";
+import { useToast } from "./common/Toast";
 import {
   SERVICE_DEFINITIONS,
   calculateServiceLine,
@@ -21,7 +19,6 @@ import {
 } from "../utils/serviceCalculator";
 import {
   cleanPhone,
-  findCustomerByPhoneOrNid,
 } from "../utils/customerStore";
 import {
   generateInvoiceNo,
@@ -33,76 +30,161 @@ import { useInstitutionSettings, toInvoiceSettings, ServiceSettingItem } from ".
 import { getLocalDateString } from "../utils/dateUtils";
 import { PAYMENT_METHODS } from "../utils/paymentMethods";
 
+// Sub-components
+import { InvoiceStepper } from "./invoice/InvoiceStepper";
+import { CustomerSection } from "./invoice/CustomerSection";
+import { DraftNoticeBar } from "./invoice/DraftNoticeBar";
+import { InvoiceSuccessModal } from "./invoice/InvoiceSuccessModal";
+
+const DRAFT_STORAGE_KEY = "lsfc_invoice_form_draft";
+
 export const ApplicationForm: React.FC = () => {
   const { settings: institutionSettings } = useInstitutionSettings();
   const printSettings = toInvoiceSettings(institutionSettings);
 
-  // সেটিংসে সংরক্ষিত সব সক্রিয় সেবা (বিল্ট-ইন + কাস্টম), প্রদর্শনের ক্রম অনুযায়ী সাজানো —
-  // এটাই একমাত্র সোর্স যা থেকে কার্ড-গ্রিড রেন্ডার হয়
-  const activeServices: ServiceSettingItem[] = [...(institutionSettings.services || [])]
-    .filter((s) => s.isActive)
-    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  const activeServices: ServiceSettingItem[] = useMemo(() => {
+    return [...(institutionSettings.services || [])]
+      .filter((s) => s.isActive)
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  }, [institutionSettings.services]);
 
-  // Customer inputs
+  const { showToast } = useToast();
+
+  // Customer states
   const [mobile, setMobile] = useState("");
   const [fullName, setFullName] = useState("");
   const [nidNo, setNidNo] = useState("");
   const [address, setAddress] = useState("");
   const [existingCustomerFound, setExistingCustomerFound] = useState(false);
 
+  // Field validation submission errors (C-4)
+  const [fieldErrors, setFieldErrors] = useState<{
+    mobile?: string;
+    fullName?: string;
+    nidNo?: string;
+    cart?: string;
+  }>({});
+  const [atRiskConfirmOpen, setAtRiskConfirmOpen] = useState(false);
+
   // Wrong data type real-time warnings
   const [mobileTypeError, setMobileTypeError] = useState<string | null>(null);
   const [nidTypeError, setNidTypeError] = useState<string | null>(null);
   const [nameTypeError, setNameTypeError] = useState<string | null>(null);
 
-  // Active service selection — ServiceSettingItem.id দিয়ে ট্র্যাক করা হয় (বিল্ট-ইন হোক বা কাস্টম)
+  // Active service selection
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number>(0);
   const [trackingNo, setTrackingNo] = useState("");
   const [serviceQuantity, setServiceQuantity] = useState<number>(1);
 
-  // Service specific parameters (built-in সেবাগুলোর ডায়নামিক ইনপুটের জন্য)
+  // Built-in / Namjari parameters
   const [pages, setPages] = useState<number>(20);
   const [applicants, setApplicants] = useState<number>(4);
 
-  // subServices কনফিগার করা যেকোনো সেবার জন্য জেনেরিক ইনপুট (যেমন: ভূমি উন্নয়ন কর)
+  // SubServices parameters (e.g. LD Tax)
   const [manualGovtFee, setManualGovtFee] = useState<number>(0);
   const [selectedSubServiceIds, setSelectedSubServiceIds] = useState<string[]>([]);
 
-  // Invoice cart
+  // Invoice cart & Payment
   const [cartLines, setCartLines] = useState<CalculatedServiceLine[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("নগদ (Cash)");
   const [customPaidAmount, setCustomPaidAmount] = useState<string>("");
   const [remainingMode, setRemainingMode] = useState<"due" | "waived">("due");
 
-  // Created invoice modal state
-  const [createdInvoice, setCreatedInvoice] = useState<InvoiceRecord | null>(null);
+  // Draft recovery status (F-2)
+  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
 
-  // প্রথম রেন্ডারে ডিফল্টভাবে প্রথম সক্রিয় সেবা নির্বাচিত থাকবে
+  // Created invoice modal state & Success modal (F-3)
+  const [createdInvoice, setCreatedInvoice] = useState<InvoiceRecord | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isInvoicePrintOpen, setIsInvoicePrintOpen] = useState(false);
+
+  // F-2: Recover unsaved draft on initial mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft.mobile || draft.fullName || (draft.cartLines && draft.cartLines.length > 0)) {
+          if (draft.mobile) setMobile(draft.mobile);
+          if (draft.fullName) setFullName(draft.fullName);
+          if (draft.nidNo) setNidNo(draft.nidNo);
+          if (draft.address) setAddress(draft.address);
+          if (Array.isArray(draft.cartLines) && draft.cartLines.length > 0) {
+            setCartLines(draft.cartLines);
+          }
+          if (draft.paymentMethod) setPaymentMethod(draft.paymentMethod);
+          if (draft.customPaidAmount) setCustomPaidAmount(draft.customPaidAmount);
+          if (draft.remainingMode) setRemainingMode(draft.remainingMode);
+          setIsDraftLoaded(true);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load draft", e);
+    }
+  }, []);
+
+  // F-2: Autosave draft whenever state changes
+  useEffect(() => {
+    if (mobile || fullName || nidNo || address || cartLines.length > 0) {
+      const draft = {
+        mobile,
+        fullName,
+        nidNo,
+        address,
+        cartLines,
+        paymentMethod,
+        customPaidAmount,
+        remainingMode,
+        timestamp: Date.now(),
+      };
+      try {
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      } catch (e) {
+        console.warn("Could not save draft", e);
+      }
+    }
+  }, [mobile, fullName, nidNo, address, cartLines, paymentMethod, customPaidAmount, remainingMode]);
+
+  const handleClearDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch {}
+    setMobile("");
+    setFullName("");
+    setNidNo("");
+    setAddress("");
+    setCartLines([]);
+    setCustomPaidAmount("");
+    setRemainingMode("due");
+    setIsDraftLoaded(false);
+    setFieldErrors({});
+    setExistingCustomerFound(false);
+    showToast("খসড়া মুছে নতুন ফর্ম প্রস্তুত করা হয়েছে।", "info");
+  };
+
+  // Selected Service configuration
   const effectiveSelectedId = selectedServiceId ?? activeServices[0]?.id ?? null;
   const selectedItem = activeServices.find((s) => s.id === effectiveSelectedId);
   const builtInType = selectedItem?.builtInType;
   const hasSubServices = (selectedItem?.subServices?.length ?? 0) > 0;
 
-  // নামজারিতে অতিরিক্ত পৃষ্ঠা/আবেদনকারীর ফি-ভাঙন জরুরি তথ্য — সাব-টাইটেল প্রিসেট দিয়ে সেটা চাপা পড়তে দেওয়া হয় না
   const namjariHasExtraFeeBreakdown = builtInType === "namjari" && (pages > 20 || applicants > 4);
   const chosenSubtitleOption =
     !hasSubServices && !namjariHasExtraFeeBreakdown && selectedItem?.subtitles && selectedItem.subtitles.length > 0
       ? selectedItem.subtitles[selectedSubtitleIndex] ?? selectedItem.subtitles[0]
       : undefined;
 
-  // Live preview calculation for the currently selected service — সাব-টাইটেল বাছাই করা থাকলে তার
-  // postalFee (থাকলে) সরাসরি ক্যালকুলেটরে পাঠানো হয়, যাতে গেটওয়ে ফি (সরকারি+ডাক ফি-র উপর) সঠিকভাবে গণনা হয়
   const safeQty = Math.max(1, Math.round(Number(serviceQuantity) || 1));
 
-  const baseCalculation: CalculatedServiceLine | null = !selectedItem
-    ? null
-    : hasSubServices
-    ? calculateSubServiceLine(selectedItem, manualGovtFee, selectedSubServiceIds, trackingNo, safeQty)
-    : builtInType
-    ? calculateServiceLine({
+  const baseCalculation: CalculatedServiceLine | null = useMemo(() => {
+    if (!selectedItem) return null;
+    if (hasSubServices) {
+      return calculateSubServiceLine(selectedItem, manualGovtFee, selectedSubServiceIds, trackingNo, safeQty);
+    }
+    if (builtInType) {
+      return calculateServiceLine({
         serviceType: builtInType,
-        // সেটিংসে অ্যাডমিন শিরোনাম বদলালে সেটাই ব্যবহার হবে
         customTitle:
           selectedItem.serviceName && selectedItem.serviceName !== SERVICE_DEFINITIONS[builtInType].nameBn
             ? selectedItem.serviceName
@@ -111,12 +193,27 @@ export const ApplicationForm: React.FC = () => {
         applicants: builtInType === "namjari" ? applicants : undefined,
         applicationTrackingNo: trackingNo,
         quantity: safeQty,
-      })
-    : calculateCustomServiceLine(selectedItem, trackingNo, chosenSubtitleOption?.postalFee, safeQty);
+      });
+    }
+    return calculateCustomServiceLine(selectedItem, trackingNo, chosenSubtitleOption?.postalFee, safeQty);
+  }, [
+    selectedItem,
+    hasSubServices,
+    manualGovtFee,
+    selectedSubServiceIds,
+    trackingNo,
+    safeQty,
+    builtInType,
+    pages,
+    applicants,
+    chosenSubtitleOption?.postalFee,
+  ]);
 
   const isLdTax =
     selectedItem?.id === "svc-ld-tax" ||
-    (selectedItem?.serviceName ? selectedItem.serviceName.includes("ভূমি উন্নয়ন কর") || selectedItem.serviceName.includes("LD Tax") : false);
+    (selectedItem?.serviceName
+      ? selectedItem.serviceName.includes("ভূমি উন্নয়ন কর") || selectedItem.serviceName.includes("LD Tax")
+      : false);
 
   const currentCalculation: CalculatedServiceLine | null = useMemo(() => {
     if (!baseCalculation) return null;
@@ -136,373 +233,115 @@ export const ApplicationForm: React.FC = () => {
     };
   }, [baseCalculation, chosenSubtitleOption, safeQty, isLdTax, builtInType]);
 
-  // বাংলা ডিজিটকে ইংরেজিতে রূপান্তরের সহকারী ফাংশন
-  const normalizeDigits = (str: string) => {
-    const bn = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
-    return str.replace(/[০-৯]/g, (d) => String(bn.indexOf(d)));
+  // Validation Helpers
+  const isCustomerValid = useMemo(() => {
+    const cleanMob = cleanPhone(mobile);
+    const validMob = cleanMob.length === 11 && cleanMob.startsWith("01");
+    const validName = fullName.trim().length >= 2;
+    return validMob && validName;
+  }, [mobile, fullName]);
+
+  // Visual Stepper Step Calculation (F-1)
+  const currentStep = useMemo<1 | 2 | 3>(() => {
+    if (!isCustomerValid) return 1;
+    if (cartLines.length === 0) return 2;
+    return 3;
+  }, [isCustomerValid, cartLines.length]);
+
+  const handleStepClick = (step: 1 | 2 | 3) => {
+    if (step === 1) {
+      document.getElementById("section-customer-info")?.scrollIntoView({ behavior: "smooth" });
+    } else if (step === 2) {
+      document.getElementById("section-services")?.scrollIntoView({ behavior: "smooth" });
+    } else if (step === 3) {
+      document.getElementById("section-payment-summary")?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
-  // রিয়েল-টাইম মোবাইল নম্বর ভ্যালিডেশন
-  const mobileValidation = useMemo(() => {
-    const raw = mobile.trim();
-    if (!raw) return { status: "idle", message: "", isValid: false };
-
-    const normalized = normalizeDigits(raw);
-
-    // কোনো অক্ষর বা বিশেষ চিহ্ন টাইপ করলে (Wrong data type)
-    if (/[^\d]/.test(normalized)) {
-      return {
-        status: "error",
-        message: "ভুল ডেটা টাইপ: মোবাইল নম্বরে শুধুমাত্র সংখ্যা লিখুন (অক্ষর বা চিহ্ন নয়)।",
-        isValid: false,
-      };
-    }
-
-    if (!normalized.startsWith("01")) {
-      return {
-        status: "error",
-        message: "মোবাইল নম্বর অবশ্যই 01 দিয়ে শুরু হতে হবে।",
-        isValid: false,
-      };
-    }
-
-    if (normalized.length < 11) {
-      return {
-        status: "warning",
-        message: `১১ ডিজিট পূর্ণ করুন (বর্তমান: ${toBanglaNumber(normalized.length)}/১১)`,
-        isValid: false,
-      };
-    }
-
-    if (normalized.length > 11) {
-      return {
-        status: "error",
-        message: `১১ ডিজিটের বেশি গ্রহণযোগ্য নয় (বর্তমান: ${toBanglaNumber(normalized.length)} ডিজিট)`,
-        isValid: false,
-      };
-    }
-
-    return {
-      status: "success",
-      message: "সঠিক মোবাইল নম্বর (১১ ডিজিট)",
-      isValid: true,
-    };
-  }, [mobile]);
-
-  // রিয়েল-টাইম এনআইডি ভ্যালিডেশন
-  const nidValidation = useMemo(() => {
-    const raw = nidNo.trim();
-    if (!raw) return { status: "idle", message: "", isValid: true };
-
-    const normalized = normalizeDigits(raw);
-
-    if (/[^\d]/.test(normalized)) {
-      return {
-        status: "error",
-        message: "ভুল ডেটা টাইপ: এনআইডিতে কোনো অক্ষর বা বিশেষ চিহ্ন ব্যবহার করা যাবে না।",
-        isValid: false,
-      };
-    }
-
-    const len = normalized.length;
-    if (len === 10) {
-      return {
-        status: "success",
-        message: "সঠিক এনআইডি: স্মার্ট কার্ড (১০ ডিজিট)",
-        isValid: true,
-      };
-    }
-    if (len === 13) {
-      return {
-        status: "success",
-        message: "সঠিক এনআইডি: পুরোনো ফরম্যাট (১৩ ডিজিট)",
-        isValid: true,
-      };
-    }
-    if (len === 17) {
-      return {
-        status: "success",
-        message: "সঠিক এনআইডি: ১৭ ডিজিট ফরম্যাট",
-        isValid: true,
-      };
-    }
-
-    return {
-      status: "warning",
-      message: `এনআইডি অবশ্যই ১০, ১৩ বা ১৭ ডিজিট হতে হবে (বর্তমান: ${toBanglaNumber(len)} ডিজিট)`,
-      isValid: false,
-    };
-  }, [nidNo]);
-
-  // রিয়েল-টাইম নামের ভ্যালিডেশন (বাংলা বর্ণমালা ও প্রমিত বানান নিশ্চিতকরণ)
-  const nameValidation = useMemo(() => {
-    const raw = fullName.trim();
-    if (!raw) return { status: "idle", message: "", isValid: false };
-
-    // ১. কোনো ইংরেজি অক্ষর থাকা যাবে না
-    if (/[a-zA-Z]/.test(raw)) {
-      return {
-        status: "error",
-        message: "নাম অবশ্যই বাংলায় লিখতে হবে (যেমন: মো. খোরশেদ আলম বা মোছা. নুরিয়া ইয়াসমিন)। ইংরেজি অক্ষর গ্রহণযোগ্য নয়।",
-        isValid: false,
-      };
-    }
-
-    // ২. কোনো বাংলা বা ইংরেজি সংখ্যা থাকা যাবে না
-    if (/[\d০-৯]/.test(raw)) {
-      return {
-        status: "error",
-        message: "ভুল ডেটা টাইপ: ভূমি মালিকের নামের ঘরে কোনো সংখ্যা গ্রহণযোগ্য নয়।",
-        isValid: false,
-      };
-    }
-
-    // ৩. ন্যূনতম একটি বাংলা বর্ণ থাকতে হবে
-    if (!/[\u0985-\u09B9\u09CE\u09DC-\u09DF]/.test(raw)) {
-      return {
-        status: "error",
-        message: "অনুগ্রহ করে সঠিক বাংলা অক্ষরে নাম লিখুন।",
-        isValid: false,
-      };
-    }
-
-    return { status: "idle", message: "", isValid: true };
-  }, [fullName]);
-
-  // Customer lookup helper
-  const checkCustomerLookup = (phoneVal: string) => {
-    const cleaned = cleanPhone(phoneVal);
-    if (cleaned.length >= 10) {
-      const match = findCustomerByPhoneOrNid(cleaned);
-      if (match) {
-        setFullName(match.fullName || "");
-        if (match.nidNo) setNidNo(match.nidNo);
-        if (match.address) setAddress(match.address);
-        setExistingCustomerFound(true);
-        return;
-      }
-    }
-    setExistingCustomerFound(false);
-  };
-
-  // মোবাইল ইনপুট: স্ট্রিং/বর্ণ বা চিহ্ন দিলে সাথে সাথে মুছে যাবে এবং ওয়ার্নিং দেখাবে
-  const handleMobileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const hasInvalid = /[^\d০-৯]/.test(val);
-
-    if (hasInvalid) {
-      setMobileTypeError("ভুল ডেটা টাইপ! মোবাইল নম্বরে অক্ষর বা চিহ্ন গ্রহণযোগ্য নয় — শুধুমাত্র সংখ্যা লিখুন।");
-      const filtered = val.replace(/[^\d০-৯]/g, "").slice(0, 11);
-      setMobile(filtered);
-      checkCustomerLookup(filtered);
-      return;
-    }
-
-    setMobileTypeError(null);
-    const filtered = val.slice(0, 11);
-    setMobile(filtered);
-    checkCustomerLookup(filtered);
-  };
-
-  // এনআইডি ইনপুট: কোনো বর্ণ বা চিহ্ন দিলে সাথে সাথে মুছে যাবে এবং ওয়ার্নিং দেখাবে
-  const handleNidChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const hasInvalid = /[^\d০-৯]/.test(val);
-
-    if (hasInvalid) {
-      setNidTypeError("ভুল ডেটা টাইপ! এনআইডিতে কোনো অক্ষর গ্রহণযোগ্য নয় — শুধুমাত্র এনআইডি নম্বর লিখুন।");
-      const filtered = val.replace(/[^\d০-৯]/g, "").slice(0, 17);
-      setNidNo(filtered);
-      return;
-    }
-
-    setNidTypeError(null);
-    setNidNo(val.slice(0, 17));
-  };
-
-  // ভূমি মালিকের নাম ইনপুট: বাংলা বর্ণ, কারচিহ্ন, ডট (.), বিসর্গ/কোলন (ঃ/:), হাইফেন (-) ব্যতীত অন্য কিছু ফিল্টার হবে
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const hasNumbers = /[\d০-৯]/.test(val);
-    const hasEnglish = /[a-zA-Z]/.test(val);
-
-    if (hasNumbers) {
-      setNameTypeError("ভুল ডেটা টাইপ! ভূমি মালিকের নামের ঘরে কোনো সংখ্যা গ্রহণযোগ্য নয় — শুধুমাত্র বাংলায় নাম লিখুন।");
-      const filtered = val.replace(/[\d০-৯]/g, "");
-      setFullName(filtered);
-      return;
-    }
-
-    if (hasEnglish) {
-      setNameTypeError("ভুল ডেটা টাইপ! নাম শুধুমাত্র বাংলায় লিখতে হবে (যেমন: মো. খোরশেদ আলম বা মোছা. নুরিয়া)।");
-      const filtered = val.replace(/[a-zA-Z]/g, "");
-      setFullName(filtered);
-      return;
-    }
-
-    // ফিল্টার: শুধুমাত্র বাংলা ইউনিকোড, স্পেস, ডট, কোলন, বিসর্গ, হাইফেন
-    const hasInvalidSymbols = /[^\u0980-\u09FF\s.:\-]/.test(val);
-    if (hasInvalidSymbols) {
-      setNameTypeError("অননুমোদিত চিহ্ন! শুধুমাত্র বাংলা অক্ষর, ডট (.), কোলন ও হাইফেন গ্রহণযোগ্য।");
-      const filtered = val.replace(/[^\u0980-\u09FF\s.:\-]/g, "");
-      setFullName(filtered);
-      return;
-    }
-
-    setNameTypeError(null);
-    setFullName(val);
-  };
-
-  const handleSelectService = (id: string) => {
-    setSelectedServiceId(id);
+  const handleSelectService = (serviceId: string) => {
+    setSelectedServiceId(serviceId);
     setSelectedSubtitleIndex(0);
-    const item = activeServices.find((s) => s.id === id);
-    if (item?.builtInType === "namjari") {
+    setTrackingNo("");
+    setServiceQuantity(1);
+
+    const s = activeServices.find((item) => item.id === serviceId);
+    if (s?.builtInType === "namjari") {
       setPages(20);
       setApplicants(4);
     } else {
       setPages(1);
       setApplicants(1);
     }
-    if (item?.subServices && item.subServices.length > 0) {
-      const defaultSub = item.subServices.find((s) => s.id === "online_submit") || item.subServices[0];
-      setSelectedSubServiceIds([defaultSub.id]);
+
+    if (s?.subServices && s.subServices.length > 0) {
+      setManualGovtFee(0);
+      setSelectedSubServiceIds(s.subServices.map((sub) => sub.id));
     } else {
+      setManualGovtFee(0);
       setSelectedSubServiceIds([]);
     }
-    setServiceQuantity(1);
-    setManualGovtFee(item?.subServices && item.subServices.length > 0 ? item.govtFee || 0 : 0);
   };
 
   const handleAddToCart = () => {
     if (!currentCalculation) return;
-
-    if (currentCalculation.centerFee <= 0 || (hasSubServices && selectedSubServiceIds.length === 0)) {
-      alert("সঠিক কেন্দ্র ফি নির্বাচন করুন");
+    if (currentCalculation.lineTotal <= 0 || currentCalculation.centerFee <= 0) {
+      showToast("এই সেবার ফি শূন্য অথবা সঠিক নয়।", "error");
       return;
     }
-
-    if (currentCalculation.lineTotal <= 0) {
-      alert("সঠিক কেন্দ্র ফি নির্বাচন করুন");
+    if (hasSubServices && selectedSubServiceIds.length === 0) {
+      showToast("অন্তত একটি অধস্তন সেবা নির্বাচন করুন।", "error");
       return;
     }
 
     setCartLines((prev) => [...prev, currentCalculation]);
     setTrackingNo("");
     setServiceQuantity(1);
-    if (builtInType === "namjari") {
-      setPages(20);
-      setApplicants(4);
-    } else {
-      setPages(1);
-      setApplicants(1);
-    }
-    if (hasSubServices) {
-      const defaultSub = selectedItem?.subServices?.find((s) => s.id === "online_submit") || selectedItem?.subServices?.[0];
-      setSelectedSubServiceIds(defaultSub ? [defaultSub.id] : []);
-      setManualGovtFee(0);
-    }
+    setFieldErrors((prev) => ({ ...prev, cart: undefined }));
+    showToast(`"${currentCalculation.serviceName}" ইনভয়েস কার্টে যুক্ত হয়েছে।`, "success");
   };
 
   const handleRemoveFromCart = (index: number) => {
     setCartLines((prev) => prev.filter((_, i) => i !== index));
+    showToast("সেবা কার্ট থেকে অপসারণ করা হয়েছে।", "info");
   };
 
-  const cartTotal = cartLines.reduce((acc, curr) => acc + curr.lineTotal, 0);
-  const cartCenterTotal = cartLines.reduce((acc, curr) => acc + curr.centerFee, 0);
-  const cartNonCenterTotal = Math.round((cartTotal - cartCenterTotal) * 100) / 100;
-  const numericPaid =
-    customPaidAmount !== ""
-      ? Math.max(0, Number.parseFloat(customPaidAmount) || 0)
-      : cartTotal;
-  const remainingGap = Math.max(
-    0,
-    Math.round((cartTotal - numericPaid) * 100) / 100
-  );
-  // বকেয়া/মাফ — দুটোই কেন্দ্র-ফি অংশ থেকে কাটা হয়, তাই কোনোটাই মোট কেন্দ্র-ফি'র চেয়ে বেশি হতে পারবে না।
-  // এর বেশি হলে মানে সরকারি/ডাক/গেটওয়ে ফি-এর অংশও অপরিশোধিত থেকে যাচ্ছে — এটাই "বকেয়া-অগ্রিম" ঝুঁকি।
-  const govtAdvanceAtRisk = remainingGap > cartCenterTotal + 0.0001;
+  // Cart Totals & Waterfall Allocations
+  const cartTotal = useMemo(() => {
+    return cartLines.reduce((sum, item) => sum + item.lineTotal, 0);
+  }, [cartLines]);
 
-  const handleCreateInvoice = (e: React.FormEvent) => {
-    e.preventDefault();
+  const cartCenterTotal = useMemo(() => {
+    return cartLines.reduce((sum, item) => sum + item.centerFee, 0);
+  }, [cartLines]);
 
-    if (!mobile.trim() || !fullName.trim()) {
-      alert("অনুগ্রহ করে ভূমি মালিকের নাম ও মোবাইল নম্বর লিখুন।");
-      return;
-    }
+  const cartNonCenterTotal = useMemo(() => {
+    return cartLines.reduce((sum, item) => sum + item.govtFee + (item.gatewayFee || 0) + (item.postalFee || 0), 0);
+  }, [cartLines]);
 
-    // --- ভ্যালিডেশন লজিক ---
-    if (!mobileValidation.isValid) {
-      alert(mobileValidation.message || "সঠিক মোবাইল নম্বর দিন (অবশ্যই 01 দিয়ে শুরু এবং ১১ ডিজিটের হতে হবে)।");
-      return;
-    }
+  const numericPaid = customPaidAmount !== "" ? Math.max(0, Number(customPaidAmount) || 0) : cartTotal;
+  const remainingGap = Math.max(0, cartTotal - numericPaid);
+  const govtAdvanceAtRisk = numericPaid < cartNonCenterTotal;
 
-    if (nameValidation.status === "error" || !nameValidation.isValid) {
-      alert(nameValidation.message || "ভূমি মালিকের নাম সঠিক বাংলা অক্ষরে লিখুন (কোনো ইংরেজি বা সংখ্যা গ্রহণযোগ্য নয়)।");
-      return;
-    }
+  // Execute Invoice Generation
+  const executeInvoiceGeneration = useCallback(() => {
+    const finalPaid = Math.min(cartTotal, numericPaid);
+    const finalDue = remainingMode === "due" ? Math.max(0, cartTotal - finalPaid) : 0;
+    const finalDiscount = remainingMode === "waived" ? Math.max(0, cartTotal - finalPaid) : 0;
 
-    if (nidNo.trim() && !nidValidation.isValid) {
-      alert(nidValidation.message || "সঠিক NID নম্বর দিন (১০, ১৩ বা ১৭ ডিজিট হতে হবে)।");
-      return;
-    }
-
-    const cleanedMobile = cleanPhone(mobile);
-
-    if (cartLines.length === 0) {
-      alert("ইনভয়েস তৈরি করার আগে অন্তত একটি সেবা যুক্ত করুন।");
-      return;
-    }
-
-    if (cartLines.some((l) => l.lineTotal <= 0 || l.centerFee <= 0)) {
-      alert("সঠিক কেন্দ্র ফি নির্বাচন করুন");
-      return;
-    }
-
-    // --- বকেয়া-অগ্রিম সতর্কতা ---
-    // বকেয়া/মাফের পরিমাণ মোট কেন্দ্র-ফি'র বেশি হলে মানে সরকারি/ডাক/গেটওয়ে ফি অংশও অপরিশোধিত থেকে যাচ্ছে
-    if (govtAdvanceAtRisk) {
-      const proceed = confirm(
-        `⚠️ সতর্কবার্তা: ভূমি মালিকের প্রদত্ত টাকা (${moneyBn(numericPaid)} ৳) দিয়ে সরকারি ফি, ডাক ফি ও গেটওয়ে ফি (মোট ${moneyBn(
-          cartNonCenterTotal
-        )} ৳) সম্পূর্ণ মেটানো যাচ্ছে না — কেন্দ্র-ফি'র চেয়ে বেশি ${remainingMode === "waived" ? "মাফ" : "বকেয়া"} থাকছে (${moneyBn(
-          remainingGap
-        )} ৳)। এর মানে সরকারি অগ্রিম মেটাতে কেন্দ্রকে নিজের টাকা থেকে দিতে হতে পারে।\n\nআপনি কি নিশ্চিতভাবে এভাবেই ইনভয়েস তৈরি করতে চান?`
-      );
-      if (!proceed) return;
-    }
-
-    let finalPaid = cartTotal;
-    let finalDue = 0;
-    let finalDiscount = 0;
-    let finalStatus: "PAID" | "PARTIAL" | "WAIVED" = "PAID";
-
-    if (customPaidAmount !== "") {
-      if (numericPaid >= cartTotal) {
-        finalPaid = cartTotal;
-        finalDue = 0;
-        finalDiscount = 0;
-        finalStatus = "PAID";
-      } else {
-        finalPaid = numericPaid;
-        if (remainingMode === "waived") {
-          finalDue = 0;
-          finalDiscount = remainingGap;
-          finalStatus = "WAIVED";
-        } else {
-          finalDue = remainingGap;
-          finalDiscount = 0;
-          finalStatus = "PARTIAL";
-        }
-      }
+    let finalStatus: InvoiceRecord["paymentStatus"] = "PAID";
+    if (finalDue > 0) {
+      finalStatus = "PARTIAL";
+    } else if (finalDiscount > 0) {
+      finalStatus = "WAIVED";
     }
 
     const newInvoiceNo = generateInvoiceNo();
+
     const invoiceRecord: InvoiceRecord = {
       invoiceNo: newInvoiceNo,
       customer: {
         fullName: fullName.trim(),
-        mobile: cleanedMobile,
+        mobile: cleanPhone(mobile),
         nidNo: nidNo.trim() || undefined,
         address: address.trim() || undefined,
       },
@@ -532,8 +371,16 @@ export const ApplicationForm: React.FC = () => {
 
     const savedInvoice = addInvoice(invoiceRecord);
     setCreatedInvoice(savedInvoice);
+    setIsSuccessModalOpen(true);
+    showToast(`ইনভয়েস #${toBanglaNumber(newInvoiceNo)} সফলভাবে তৈরি ও সংরক্ষিত হয়েছে।`, "success");
 
-    // Reset Form
+    // Clear Draft from storage
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch {}
+    setIsDraftLoaded(false);
+
+    // Reset inputs
     setCartLines([]);
     setMobile("");
     setFullName("");
@@ -542,327 +389,220 @@ export const ApplicationForm: React.FC = () => {
     setCustomPaidAmount("");
     setRemainingMode("due");
     setExistingCustomerFound(false);
-  };
+    setFieldErrors({});
+    setAtRiskConfirmOpen(false);
+  }, [
+    cartTotal,
+    numericPaid,
+    remainingMode,
+    fullName,
+    mobile,
+    nidNo,
+    address,
+    cartLines,
+    paymentMethod,
+    showToast,
+  ]);
+
+  const handleCreateInvoice = useCallback(
+    (e?: React.FormEvent) => {
+      if (e) e.preventDefault();
+
+      const errors: typeof fieldErrors = {};
+      let firstInvalidId: string | null = null;
+
+      const cleanMob = cleanPhone(mobile);
+      if (!cleanMob) {
+        errors.mobile = "অনুগ্রহ করে ভূমি মালিকের মোবাইল নম্বর লিখুন।";
+        firstInvalidId = firstInvalidId || "input-customer-mobile";
+      } else if (!cleanMob.startsWith("01") || cleanMob.length !== 11) {
+        errors.mobile = "সঠিক মোবাইল নম্বর দিন (অবশ্যই 01 দিয়ে শুরু এবং ১১ ডিজিটের হতে হবে)।";
+        firstInvalidId = firstInvalidId || "input-customer-mobile";
+      }
+
+      if (!fullName.trim()) {
+        errors.fullName = "অনুগ্রহ করে ভূমি মালিকের পূর্ণ নাম লিখুন।";
+        firstInvalidId = firstInvalidId || "input-customer-name";
+      } else if (/[\d০-৯]/.test(fullName)) {
+        errors.fullName = "ভূমি মালিকের নামে সংখ্যা গ্রহণযোগ্য নয়।";
+        firstInvalidId = firstInvalidId || "input-customer-name";
+      }
+
+      if (cartLines.length === 0) {
+        errors.cart = "ইনভয়েস তৈরি করার আগে অন্তত একটি সেবা কার্টে যুক্ত করুন।";
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors);
+        if (firstInvalidId) {
+          const el = document.getElementById(firstInvalidId);
+          el?.focus();
+          el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        showToast("ফর্মে কিছু ত্রুটি রয়েছে। লাল চিহ্নিত অংশগুলো সংশোধন করুন।", "error");
+        return;
+      }
+
+      setFieldErrors({});
+
+      if (govtAdvanceAtRisk) {
+        setAtRiskConfirmOpen(true);
+        return;
+      }
+
+      executeInvoiceGeneration();
+    },
+    [mobile, fullName, cartLines.length, govtAdvanceAtRisk, executeInvoiceGeneration, showToast]
+  );
+
+  // F-5: Global Ctrl+Enter shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleCreateInvoice();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleCreateInvoice]);
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Columns: Customer Info & Service Selection */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Customer Details Box */}
-          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
-              <div className="flex items-center gap-2">
-                <User className="w-5 h-5 text-[#902A8B]" />
-                <h3 className="font-bold text-gray-800 font-anek text-base">ভূমি মালিকের তথ্য</h3>
-              </div>
-              {existingCustomerFound && (
-                <span className="bg-green-100 text-[#37A448] text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> পূর্বে সংরক্ষিত ভূমি মালিক
-                </span>
-              )}
-            </div>
+    <div className="space-y-5 animate-in fade-in duration-300">
+      {/* Visual Stepper (F-1) */}
+      <InvoiceStepper
+        currentStep={currentStep}
+        onStepClick={handleStepClick}
+        isCustomerValid={isCustomerValid}
+        hasCartItems={cartLines.length > 0}
+      />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* মোবাইল নম্বর */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="input-customer-mobile" className="block text-xs font-semibold text-gray-700">
-                    মোবাইল নম্বর <span className="text-red-500">*</span>
-                  </label>
-                  {mobile.trim() && (
-                    <span
-                      className={`text-[11px] font-bold font-anek ${
-                        mobileValidation.isValid
-                          ? "text-[#37A448]"
-                          : "text-[#EC2324]"
-                      }`}
-                    >
-                      {toBanglaNumber(normalizeDigits(mobile.trim()).length)}/১১ ডিজিট
-                    </span>
-                  )}
-                </div>
-                <div className="relative">
-                  <Phone
-                    className={`w-4 h-4 absolute left-3 top-2.5 transition-colors ${
-                      mobileValidation.isValid
-                        ? "text-[#37A448]"
-                        : mobileValidation.status !== "idle"
-                        ? "text-[#EC2324]"
-                        : "text-gray-400"
-                    }`}
-                  />
-                  <input
-                    id="input-customer-mobile"
-                    type="text"
-                    required
-                    maxLength={11}
-                    placeholder="017XXXXXXXX"
-                    value={mobile}
-                    onChange={handleMobileChange}
-                    className={`w-full pl-9 pr-8 py-2 text-sm rounded-lg transition-all duration-150 focus:outline-hidden ${
-                      mobileTypeError
-                        ? "border-2 border-[#EC2324] bg-red-50 text-gray-900 ring-2 ring-[#EC2324]/30"
-                        : mobileValidation.isValid
-                        ? "border-2 border-[#37A448] bg-emerald-50/25 text-gray-900 focus:ring-2 focus:ring-[#37A448]"
-                        : mobileValidation.status !== "idle"
-                        ? "border-2 border-[#EC2324] bg-red-50/25 text-gray-900 focus:ring-2 focus:ring-[#EC2324]"
-                        : "border border-gray-300 focus:ring-2 focus:ring-[#902A8B]"
-                    }`}
-                  />
-                  {mobileValidation.isValid && !mobileTypeError && (
-                    <CheckCircle2 className="w-4 h-4 text-[#37A448] absolute right-3 top-2.5" />
-                  )}
-                  {(mobileTypeError || (mobileValidation.status !== "idle" && !mobileValidation.isValid)) && (
-                    <AlertCircle className="w-4 h-4 text-[#EC2324] absolute right-3 top-2.5" />
-                  )}
-                </div>
-                {mobileTypeError ? (
-                  <p className="text-[11px] mt-1.5 font-bold text-[#EC2324] bg-red-50 border border-red-200 px-2 py-1 rounded-md flex items-center gap-1.5 animate-pulse">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>{mobileTypeError}</span>
-                  </p>
-                ) : mobileValidation.status !== "idle" && (
-                  <p
-                    className={`text-[11px] mt-1 font-medium flex items-center gap-1 ${
-                      mobileValidation.isValid
-                        ? "text-[#37A448]"
-                        : "text-[#EC2324]"
-                    }`}
-                  >
-                    {mobileValidation.isValid ? (
-                      <CheckCircle2 className="w-3 h-3 shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-3 h-3 shrink-0" />
-                    )}
-                    <span>{mobileValidation.message}</span>
-                  </p>
-                )}
-              </div>
+      {/* Draft Notification Bar (F-2) */}
+      {isDraftLoaded && <DraftNoticeBar onClearDraft={handleClearDraft} />}
 
-              {/* ভূমি মালিকের নাম */}
-              <div>
-                <label htmlFor="input-customer-name" className="block text-xs font-semibold text-gray-700 mb-1">
-                  ভূমি মালিকের পূর্ণ নাম <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <User
-                    className={`w-4 h-4 absolute left-3 top-2.5 transition-colors ${
-                      nameTypeError || nameValidation.status === "error"
-                        ? "text-[#EC2324]"
-                        : "text-gray-400"
-                    }`}
-                  />
-                  <input
-                    id="input-customer-name"
-                    type="text"
-                    required
-                    placeholder="যেমন: মো: রফিকুল ইসলাম"
-                    value={fullName}
-                    onChange={handleNameChange}
-                    className={`w-full pl-9 pr-8 py-2 text-sm rounded-lg transition-all duration-150 focus:outline-hidden ${
-                      nameTypeError
-                        ? "border-2 border-[#EC2324] bg-red-50 text-gray-900 ring-2 ring-[#EC2324]/30"
-                        : nameValidation.status === "error"
-                        ? "border-2 border-[#EC2324] bg-red-50/25 text-gray-900 focus:ring-2 focus:ring-[#EC2324]"
-                        : "border border-gray-300 focus:ring-2 focus:ring-[#902A8B]"
-                    }`}
-                  />
-                  {(nameTypeError || nameValidation.status === "error") && (
-                    <AlertCircle className="w-4 h-4 text-[#EC2324] absolute right-3 top-2.5" />
-                  )}
-                </div>
-                {nameTypeError ? (
-                  <p className="text-[11px] mt-1.5 font-bold text-[#EC2324] bg-red-50 border border-red-200 px-2 py-1 rounded-md flex items-center gap-1.5 animate-pulse">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>{nameTypeError}</span>
-                  </p>
-                ) : nameValidation.status === "error" && (
-                  <p className="text-[11px] mt-1 font-medium text-[#EC2324] flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>{nameValidation.message}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* জাতীয় পরিচয়পত্র (NID) নম্বর */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="input-customer-nid" className="block text-xs font-semibold text-gray-700">
-                    জাতীয় পরিচয়পত্র (NID) নম্বর
-                  </label>
-                  {nidNo.trim() && (
-                    <span
-                      className={`text-[11px] font-bold font-anek ${
-                        nidValidation.isValid ? "text-[#37A448]" : "text-[#EC2324]"
-                      }`}
-                    >
-                      {toBanglaNumber(normalizeDigits(nidNo.trim()).length)} ডিজিট
-                    </span>
-                  )}
-                </div>
-                <div className="relative">
-                  <CreditCard
-                    className={`w-4 h-4 absolute left-3 top-2.5 transition-colors ${
-                      nidTypeError
-                        ? "text-[#EC2324]"
-                        : nidNo.trim() && nidValidation.isValid
-                        ? "text-[#37A448]"
-                        : nidValidation.status !== "idle" && !nidValidation.isValid
-                        ? "text-[#EC2324]"
-                        : "text-gray-400"
-                    }`}
-                  />
-                  <input
-                    id="input-customer-nid"
-                    type="text"
-                    maxLength={17}
-                    placeholder="১০, ১৩ বা ১৭ ডিজিট"
-                    value={nidNo}
-                    onChange={handleNidChange}
-                    className={`w-full pl-9 pr-8 py-2 text-sm rounded-lg transition-all duration-150 focus:outline-hidden ${
-                      nidTypeError
-                        ? "border-2 border-[#EC2324] bg-red-50 text-gray-900 ring-2 ring-[#EC2324]/30"
-                        : nidNo.trim() && nidValidation.isValid
-                        ? "border-2 border-[#37A448] bg-emerald-50/25 text-gray-900 focus:ring-2 focus:ring-[#37A448]"
-                        : nidValidation.status !== "idle" && !nidValidation.isValid
-                        ? "border-2 border-[#EC2324] bg-red-50/25 text-gray-900 focus:ring-2 focus:ring-[#EC2324]"
-                        : "border border-gray-300 focus:ring-2 focus:ring-[#902A8B]"
-                    }`}
-                  />
-                  {nidNo.trim() && nidValidation.isValid && !nidTypeError && (
-                    <CheckCircle2 className="w-4 h-4 text-[#37A448] absolute right-3 top-2.5" />
-                  )}
-                  {(nidTypeError || (nidValidation.status !== "idle" && !nidValidation.isValid)) && (
-                    <AlertCircle className="w-4 h-4 text-[#EC2324] absolute right-3 top-2.5" />
-                  )}
-                </div>
-                {nidTypeError ? (
-                  <p className="text-[11px] mt-1.5 font-bold text-[#EC2324] bg-red-50 border border-red-200 px-2 py-1 rounded-md flex items-center gap-1.5 animate-pulse">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>{nidTypeError}</span>
-                  </p>
-                ) : nidValidation.status !== "idle" && (
-                  <p
-                    className={`text-[11px] mt-1 font-medium flex items-center gap-1 ${
-                      nidValidation.isValid ? "text-[#37A448]" : "text-[#EC2324]"
-                    }`}
-                  >
-                    {nidValidation.isValid ? (
-                      <CheckCircle2 className="w-3 h-3 shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-3 h-3 shrink-0" />
-                    )}
-                    <span>{nidValidation.message}</span>
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="input-customer-address" className="block text-xs font-medium text-gray-700 mb-1">
-                  ঠিকানা / গ্রাম / মৌজা
-                </label>
-                <div className="relative">
-                  <MapPin className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                  <input
-                    id="input-customer-address"
-                    type="text"
-                    placeholder="গ্রাম, ইউনিয়ন, জেলা"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
-                  />
-                </div>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column (lg:col-span-7): Customer Info & Service Selection */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Step 1: Customer Info Box */}
+          <div id="section-customer-info">
+            <CustomerSection
+              fullName={fullName}
+              setFullName={setFullName}
+              mobile={mobile}
+              setMobile={setMobile}
+              nidNo={nidNo}
+              setNidNo={setNidNo}
+              address={address}
+              setAddress={setAddress}
+              existingCustomerFound={existingCustomerFound}
+              setExistingCustomerFound={setExistingCustomerFound}
+              fieldErrors={fieldErrors}
+              nameTypeError={nameTypeError}
+              setNameTypeError={setNameTypeError}
+              mobileTypeError={mobileTypeError}
+              setMobileTypeError={setMobileTypeError}
+              nidTypeError={nidTypeError}
+              setNidTypeError={setNidTypeError}
+            />
           </div>
 
-          {/* Service Configuration Box */}
-          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6">
-            <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-3">
-              <FileText className="w-5 h-5 text-[#902A8B]" />
-              <h3 className="font-bold text-gray-800 font-anek text-base">ভূমিসেবা নির্বাচন ও বিবরণ</h3>
+          {/* Step 2: Service Configuration Box */}
+          <div
+            id="section-services"
+            className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-4"
+          >
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-[#902A8B] dark:text-purple-300 flex items-center justify-center font-bold">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm sm:text-base font-anek text-slate-900 dark:text-white leading-tight">
+                  ধাপ ২: ভূমিসেবা নির্বাচন ও বিবরণ
+                </h3>
+                <p className="text-[11px] text-slate-400 font-kalpurush">
+                  প্রয়োজনীয় সেবা কার্ডে ক্লিক করে পরিমাণ ও প্যারামিটার নির্ধারণ করুন
+                </p>
+              </div>
             </div>
 
-            {/* Service Type Selection Grid — একই তালিকা থেকে বিল্ট-ইন ও কাস্টম উভয় সেবা রেন্ডার হয়; ছোট কার্ড, শুধু শিরোনাম ও ফি */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 mb-6">
+            {/* Service Type Selection Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               {activeServices.map((item, idx) => {
                 const isSelected = effectiveSelectedId === item.id;
                 const def = item.builtInType ? SERVICE_DEFINITIONS[item.builtInType] : undefined;
                 const itemHasSub = (item.subServices?.length ?? 0) > 0;
+
                 return (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => handleSelectService(item.id)}
-                    className={`p-2.5 rounded-lg border text-left cursor-pointer transition relative flex flex-col justify-between ${
+                    className={`p-3 rounded-xl border text-left cursor-pointer transition relative flex flex-col justify-between ${
                       isSelected
-                        ? "border-[#902A8B] bg-purple-50/60 ring-2 ring-[#902A8B]/30 shadow-xs"
-                        : "border-gray-200 hover:border-purple-200 hover:bg-gray-50"
+                        ? "border-[#902A8B] bg-purple-50/70 dark:bg-purple-950/40 ring-2 ring-[#902A8B]/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-800 hover:border-purple-200 dark:hover:border-purple-800 bg-white dark:bg-slate-800/60"
                     }`}
                   >
                     <div>
-                      <div className="flex items-start gap-1.5 mb-1">
+                      <div className="flex items-start gap-1.5 mb-1.5">
                         <span
                           className={`inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold font-anek rounded-full shrink-0 ${
                             isSelected
                               ? "bg-[#902A8B] text-white"
-                              : "bg-gray-100 text-gray-700"
+                              : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
                           }`}
                         >
                           {toBanglaNumber(idx + 1)}
                         </span>
-                        <p className={`font-bold text-xs sm:text-sm line-clamp-2 leading-tight ${isSelected ? "text-[#902A8B]" : "text-gray-800"}`}>
+                        <p
+                          className={`font-bold text-xs sm:text-sm line-clamp-2 leading-tight font-anek ${
+                            isSelected ? "text-[#902A8B] dark:text-purple-300" : "text-slate-800 dark:text-slate-200"
+                          }`}
+                        >
                           {item.serviceName || def?.nameBn || "(নামহীন সেবা)"}
                         </p>
                       </div>
                     </div>
-                    <div className="mt-2 pt-1.5 border-t border-gray-100 flex items-center justify-between text-[11px] font-anek">
-                      <span className="text-gray-500">
+
+                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px] font-anek">
+                      <span className="text-slate-500 dark:text-slate-400">
                         সরকারি: {itemHasSub ? "ম্যানুয়াল" : `${toBanglaNumber(item.govtFee)}৳`}
                       </span>
-                      <span className="font-semibold text-[#37A448]">
-                        কেন্দ্র: {itemHasSub ? `${toBanglaNumber(item.subServices?.[0]?.fee || 20)}৳/ধাপ` : `${toBanglaNumber(item.centerFee)}৳`}
+                      <span className="font-bold text-[#37A448]">
+                        কেন্দ্র: {itemHasSub ? `${toBanglaNumber(item.subServices?.[0]?.fee || 20)}৳` : `${toBanglaNumber(item.centerFee)}৳`}
                       </span>
                     </div>
                   </button>
                 );
               })}
-
-              {activeServices.length === 0 && (
-                <p className="col-span-full text-xs text-gray-400 text-center py-6">
-                  কোনো সক্রিয় সেবা পাওয়া যায়নি। সেটিংস থেকে অন্তত একটি সেবা সক্রিয় করুন।
-                </p>
-              )}
             </div>
 
-            {/* Dynamic Inputs per selected service */}
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Dynamic Inputs Box per selected service */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200/80 dark:border-slate-700 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="input-service-tracking" className="block text-xs font-medium text-gray-700 mb-1">
-                    আবেদন / কেস / ট্র্যাকিং নম্বর (ঐচ্ছিক)
+                  <label htmlFor="input-service-tracking" className="block text-xs font-bold text-slate-700 dark:text-slate-300 font-anek mb-1">
+                    আবেদন / কেস / ট্র্যাকিং নম্বর <span className="text-[10px] text-slate-400 font-normal">(ঐচ্ছিক)</span>
                   </label>
                   <input
                     id="input-service-tracking"
                     type="text"
-                    placeholder="যেমন: NAM-2026-XXXXX বা পর্চা নং"
+                    placeholder="যেমন: NAM-2026-XXXXX"
                     value={trackingNo}
                     onChange={(e) => setTrackingNo(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+                    className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-[#902A8B]"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="input-app-service-quantity" className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="input-app-service-quantity" className="block text-xs font-bold text-slate-700 dark:text-slate-300 font-anek mb-1">
                     {isLdTax ? "হোল্ডিংয়ের সংখ্যা / পরিমাণ" : "আবেদনের সংখ্যা / পরিমাণ"} (টি)
                   </label>
                   <div className="flex items-center">
                     <button
                       type="button"
                       onClick={() => setServiceQuantity((prev) => Math.max(1, prev - 1))}
-                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-l-lg border border-r-0 border-gray-300 transition text-sm cursor-pointer select-none"
-                      title="পরিমাণ কমান"
+                      className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-l-xl border border-r-0 border-slate-300 dark:border-slate-600 transition text-sm cursor-pointer select-none"
                     >
                       -
                     </button>
@@ -873,33 +613,23 @@ export const ApplicationForm: React.FC = () => {
                       max="100"
                       value={serviceQuantity}
                       onChange={(e) => setServiceQuantity(Math.max(1, Number.parseInt(e.target.value, 10) || 1))}
-                      className="w-full text-center px-2 py-2 text-sm font-bold text-[#902A8B] border border-gray-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+                      className="w-full text-center px-2 py-2 text-sm font-bold text-[#902A8B] dark:text-purple-300 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-purple-200"
                     />
                     <button
                       type="button"
                       onClick={() => setServiceQuantity((prev) => prev + 1)}
-                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-r-lg border border-l-0 border-gray-300 transition text-sm cursor-pointer select-none"
-                      title="পরিমাণ বাড়ান"
+                      className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-r-xl border border-l-0 border-slate-300 dark:border-slate-600 transition text-sm cursor-pointer select-none"
                     >
                       +
                     </button>
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    {serviceQuantity > 1 ? (
-                      <span className="text-[#37A448] font-semibold">
-                        {toBanglaNumber(serviceQuantity)} গুণ ফি সমন্বয় হচ্ছে
-                      </span>
-                    ) : (
-                      "একাধিক আবেদনের ক্ষেত্রে সংখ্যা বৃদ্ধি করুন"
-                    )}
-                  </p>
                 </div>
 
                 {builtInType === "namjari" && (
                   <>
                     <div>
-                      <label htmlFor="input-app-pages" className="block text-xs font-medium text-gray-700 mb-1">
-                        স্ক্যানকৃত পৃষ্ঠা সংখ্যা (২০ পৃষ্ঠা ফ্রি)
+                      <label htmlFor="input-app-pages" className="block text-xs font-bold text-slate-700 dark:text-slate-300 font-anek mb-1">
+                        স্ক্যানকৃত পৃষ্ঠা সংখ্যা (২০ পৃষ্ঠা অন্তর্ভুক্ত)
                       </label>
                       <input
                         id="input-app-pages"
@@ -907,18 +637,14 @@ export const ApplicationForm: React.FC = () => {
                         min="1"
                         value={pages}
                         onChange={(e) => setPages(Math.max(1, Number.parseInt(e.target.value, 10) || 1))}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-200"
                       />
-                      <p className="text-[11px] text-gray-500 mt-0.5">২০ পৃষ্ঠার বেশি হলে প্রতি পৃষ্ঠা ৳৩</p>
-                      {pages > 20 && (
-                        <p className="text-[11px] text-[#902A8B] font-medium mt-0.5">
-                          অতিরিক্ত পৃষ্ঠা: {toBanglaNumber(pages - 20)}টি (ফি: {toBanglaNumber((pages - 20) * 3)} ৳)
-                        </p>
-                      )}
+                      <p className="text-[10px] text-slate-400 mt-1 font-kalpurush">২০ পৃষ্ঠার অতিরিক্ত প্রতি পৃষ্ঠা ৩ ৳</p>
                     </div>
+
                     <div>
-                      <label htmlFor="input-app-applicants" className="block text-xs font-medium text-gray-700 mb-1">
-                        আবেদনকারীর সংখ্যা (৪ জন পর্যন্ত ফ্রি)
+                      <label htmlFor="input-app-applicants" className="block text-xs font-bold text-slate-700 dark:text-slate-300 font-anek mb-1">
+                        আবেদনকারীর সংখ্যা (৪ জন অন্তর্ভুক্ত)
                       </label>
                       <input
                         id="input-app-applicants"
@@ -926,23 +652,18 @@ export const ApplicationForm: React.FC = () => {
                         min="1"
                         value={applicants}
                         onChange={(e) => setApplicants(Math.max(1, Number.parseInt(e.target.value, 10) || 1))}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-200"
                       />
-                      <p className="text-[11px] text-gray-500 mt-0.5">৪ জনের বেশি হলে প্রতি ব্যক্তি/আবেদনকারী ৳১০</p>
-                      {applicants > 4 && (
-                        <p className="text-[11px] text-[#902A8B] font-medium mt-0.5">
-                          অতিরিক্ত ব্যক্তি: {toBanglaNumber(applicants - 4)}জন (ফি: {toBanglaNumber((applicants - 4) * 10)} ৳)
-                        </p>
-                      )}
+                      <p className="text-[10px] text-slate-400 mt-1 font-kalpurush">৪ জনের অতিরিক্ত প্রতি জন ১০ ৳</p>
                     </div>
                   </>
                 )}
 
                 {hasSubServices && (
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="input-app-manual-govt-fee" className="block text-xs font-medium text-gray-700 mb-1">
-                        সরকারি ফি (মূল দাবি, টাকা)
+                      <label htmlFor="input-app-manual-govt-fee" className="block text-xs font-bold text-slate-700 dark:text-slate-300 font-anek mb-1">
+                        সরকারি ফি (টাকা)
                       </label>
                       <input
                         id="input-app-manual-govt-fee"
@@ -950,17 +671,17 @@ export const ApplicationForm: React.FC = () => {
                         min="0"
                         value={manualGovtFee}
                         onChange={(e) => setManualGovtFee(Math.max(0, Number.parseFloat(e.target.value) || 0))}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-200"
                       />
-                      <p className="text-[11px] text-gray-500 mt-0.5">এই টাকার অংকটি সরকারি ফি হিসেবে গণ্য হবে।</p>
                     </div>
+
                     <div>
-                      <div className="block text-xs font-medium text-gray-700 mb-2">
-                        অধীনস্ত সেবা নির্বাচন করুন (একাধিক নির্বাচনযোগ্য)
-                      </div>
-                      <div className="space-y-1.5">
+                      <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 font-anek mb-1.5">
+                        অধীনস্ত সেবা নির্বাচন:
+                      </span>
+                      <div className="space-y-1.5 font-kalpurush">
                         {selectedItem!.subServices!.map((sub) => (
-                          <label key={sub.id} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                          <label key={sub.id} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={selectedSubServiceIds.includes(sub.id)}
@@ -969,88 +690,63 @@ export const ApplicationForm: React.FC = () => {
                                   e.target.checked ? [...prev, sub.id] : prev.filter((id) => id !== sub.id)
                                 )
                               }
-                              className="text-[#902A8B] rounded-sm"
+                              className="text-[#902A8B] rounded cursor-pointer"
                             />
-                            {sub.label} (৳{toBanglaNumber(sub.fee)})
+                            {sub.label} ({toBanglaNumber(sub.fee)}৳)
                           </label>
                         ))}
                       </div>
                     </div>
                   </div>
                 )}
-
-                {!hasSubServices && (selectedItem?.subtitles?.length ?? 0) > 0 && (
-                  <div className="md:col-span-2">
-                    <div className="block text-xs font-medium text-gray-700 mb-2">
-                      সাব-টাইটেল নির্বাচন করুন
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      {selectedItem!.subtitles!.map((opt, idx) => (
-                        <label
-                          key={opt.id}
-                          className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer"
-                        >
-                          <input
-                            type="radio"
-                            name="subtitlePreset"
-                            checked={selectedSubtitleIndex === idx}
-                            onChange={() => setSelectedSubtitleIndex(idx)}
-                            className="text-[#902A8B]"
-                          />
-                          {opt.label || "(খালি)"}
-                          {!!opt.postalFee && (
-                            <span className="text-[10px] text-gray-400">(ডাক মাশুল ৳{toBanglaNumber(opt.postalFee)})</span>
-                          )}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {!builtInType && !hasSubServices && !(selectedItem?.subtitles?.length) && selectedItem?.subText && (
-                  <div className="md:col-span-2">
-                    <p className="text-xs text-gray-600 bg-purple-50 p-2.5 rounded-md border border-purple-200">
-                      {selectedItem.subText}
-                    </p>
-                  </div>
-                )}
               </div>
 
-              {/* Realtime Service Calculation Preview Box */}
-              {currentCalculation && (
-                <div className="border-t border-gray-200 pt-3 space-y-2.5 text-xs">
-                  {(currentCalculation.centerFee <= 0 || (hasSubServices && selectedSubServiceIds.length === 0)) && (
-                    <div className="w-full bg-red-50 border border-red-200 text-red-700 px-3 py-1.5 rounded-lg text-xs flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                      <span className="font-semibold text-red-600">
-                        সঠিক কেন্দ্র ফি নির্বাচন করুন
-                      </span>
-                    </div>
-                  )}
+              {/* Subtitle selection if available */}
+              {!hasSubServices && (selectedItem?.subtitles?.length ?? 0) > 0 && (
+                <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
+                  <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 font-anek mb-2">
+                    সাব-টাইটেল / ধরন নির্বাচন:
+                  </span>
+                  <div className="flex flex-wrap gap-3 font-kalpurush">
+                    {selectedItem!.subtitles!.map((opt, idx) => (
+                      <label key={opt.id} className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="subtitlePreset"
+                          checked={selectedSubtitleIndex === idx}
+                          onChange={() => setSelectedSubtitleIndex(idx)}
+                          className="text-[#902A8B] cursor-pointer"
+                        />
+                        {opt.label || "(খালি)"}
+                        {!!opt.postalFee && (
+                          <span className="text-[10px] text-slate-400">(ডাক মাশুল {toBanglaNumber(opt.postalFee)}৳)</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
+              {/* Live Service Calculation Preview & Add to Cart button */}
+              {currentCalculation && (
+                <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-3 text-xs font-kalpurush">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-gray-600">
-                        সরকারি ফি: <strong className="text-gray-800">{moneyBn(currentCalculation.govtFee)}৳</strong>
+                      <span className="text-slate-600 dark:text-slate-400">
+                        সরকারি ফি: <strong className="text-slate-800 dark:text-slate-200">{moneyBn(currentCalculation.govtFee)}৳</strong>
                       </span>
-                      <span className="text-gray-600">
-                        গেটওয়ে ফি: <strong className="text-gray-800">{moneyBn(currentCalculation.gatewayFee)}৳</strong>
+                      <span className="text-slate-600 dark:text-slate-400">
+                        গেটওয়ে ফি: <strong className="text-slate-800 dark:text-slate-200">{moneyBn(currentCalculation.gatewayFee)}৳</strong>
                       </span>
                       {currentCalculation.postalFee > 0 && (
-                        <span className="text-gray-600">
-                          ডাক মাশুল: <strong className="text-gray-800">{moneyBn(currentCalculation.postalFee)}৳</strong>
+                        <span className="text-slate-600 dark:text-slate-400">
+                          ডাক মাশুল: <strong className="text-slate-800 dark:text-slate-200">{moneyBn(currentCalculation.postalFee)}৳</strong>
                         </span>
                       )}
-                      <span className="text-gray-600">
-                        কেন্দ্র মাশুল: <strong className={currentCalculation.centerFee <= 0 ? "text-red-600 font-bold" : "text-[#37A448]"}>{moneyBn(currentCalculation.centerFee)}৳</strong>
+                      <span className="text-slate-600 dark:text-slate-400">
+                        কেন্দ্র মাশুল: <strong className="text-[#37A448]">{moneyBn(currentCalculation.centerFee)}৳</strong>
                       </span>
-                      <span
-                        className={`text-sm font-bold px-2 py-0.5 rounded-sm border ${
-                          currentCalculation.lineTotal <= 0 || currentCalculation.centerFee <= 0 || (hasSubServices && selectedSubServiceIds.length === 0)
-                            ? "text-red-600 bg-red-50 border-red-300"
-                            : "text-[#902A8B] bg-white border-[#902A8B]/30"
-                        }`}
-                      >
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-lg border border-[#902A8B]/30 bg-purple-50 dark:bg-purple-950/60 text-[#902A8B] dark:text-purple-300 font-anek">
                         লাইন মোট: {moneyBn(currentCalculation.lineTotal)} ৳
                       </span>
                     </div>
@@ -1060,9 +756,9 @@ export const ApplicationForm: React.FC = () => {
                       type="button"
                       onClick={handleAddToCart}
                       disabled={currentCalculation.lineTotal <= 0 || currentCalculation.centerFee <= 0 || (hasSubServices && selectedSubServiceIds.length === 0)}
-                      className={`px-4 py-2 rounded-lg font-medium text-xs flex items-center gap-1.5 shadow-xs transition ${
+                      className={`px-4 py-2 rounded-xl font-bold text-xs font-anek flex items-center gap-1.5 shadow-xs transition ${
                         currentCalculation.lineTotal <= 0 || currentCalculation.centerFee <= 0 || (hasSubServices && selectedSubServiceIds.length === 0)
-                          ? "bg-gray-300 text-gray-500 cursor-not-allowed opacity-75"
+                          ? "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
                           : "bg-[#902A8B] hover:bg-[#7a2276] text-white cursor-pointer"
                       }`}
                     >
@@ -1075,51 +771,73 @@ export const ApplicationForm: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Invoice Cart & Finalize */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6 flex flex-col h-full">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+        {/* Right Column (lg:col-span-5): Sticky Invoice Summary & Finalize (F-1) */}
+        <div id="section-payment-summary" className="lg:col-span-5 lg:sticky lg:top-20 space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
               <div className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-[#37A448]" />
-                <h3 className="font-bold text-gray-800 font-anek text-base">ইনভয়েস সারাংশ</h3>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#37A448] dark:text-emerald-300 flex items-center justify-center font-bold">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base font-anek text-slate-900 dark:text-white leading-tight">
+                    ধাপ ৩: ইনভয়েস সারাংশ ও পরিশোধ
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-kalpurush">
+                    নির্বাচিত সেবাসমূহ ও পেমেন্ট গ্রহণ
+                  </p>
+                </div>
               </div>
-              <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
-                {toBanglaNumber(cartLines.length)}টি আইটেম
+              <span className="text-xs font-bold font-anek bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full text-slate-600 dark:text-slate-300">
+                {toBanglaNumber(cartLines.length)}টি সেবা
               </span>
             </div>
 
+            {/* Cart Error Message */}
+            {fieldErrors.cart && (
+              <div className="mb-3 p-2.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-1.5 font-medium animate-in fade-in font-kalpurush">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{fieldErrors.cart}</span>
+              </div>
+            )}
+
             {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto max-h-64 space-y-2 mb-4 pr-1">
+            <div className="overflow-y-auto max-h-56 space-y-2 mb-4 pr-1">
               {cartLines.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-xs border border-dashed rounded-lg">
+                <div className="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-200 dark:border-slate-800 rounded-xl font-kalpurush">
                   কোনো সেবা নির্বাচন করা হয়নি। বাম পাশ থেকে সেবা যুক্ত করুন।
                 </div>
               ) : (
                 cartLines.map((line, idx) => (
                   <div
                     key={idx}
-                    className="p-3 bg-gray-50 rounded-lg border border-gray-200 flex items-start justify-between text-xs hover:bg-purple-50/30 transition"
+                    className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700 flex items-start justify-between text-xs hover:bg-purple-50/30 transition font-kalpurush"
                   >
-                    <div>
+                    <div className="min-w-0 pr-2">
                       <div className="flex items-center gap-1.5">
-                        <p className="font-bold text-[#902A8B]">{line.serviceName}</p>
+                        <p className="font-bold text-[#902A8B] dark:text-purple-400 font-anek truncate">
+                          {line.serviceName}
+                        </p>
                         {line.quantity && line.quantity > 1 && (
-                          <span className="bg-purple-100 text-[#902A8B] px-1.5 py-0.5 rounded text-[10px] font-bold">
+                          <span className="bg-purple-100 dark:bg-purple-950/80 text-[#902A8B] dark:text-purple-300 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">
                             {toBanglaNumber(line.quantity)}টি
                           </span>
                         )}
                       </div>
-                      {line.subText && <p className="text-[11px] text-gray-500 mt-0.5">{line.subText}</p>}
+                      {line.subText && <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{line.subText}</p>}
                       {line.applicationTrackingNo && (
                         <p className="text-[10px] text-[#37A448]">ট্র্যাকিং: {line.applicationTrackingNo}</p>
                       )}
                     </div>
-                    <div className="text-right flex items-center gap-2">
-                      <span className="font-bold text-gray-800">{moneyBn(line.lineTotal)} ৳</span>
+                    <div className="text-right flex items-center gap-2 shrink-0">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 font-anek">
+                        {moneyBn(line.lineTotal)} ৳
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveFromCart(idx)}
-                        className="text-red-500 hover:text-red-700 p-1 cursor-pointer transition"
+                        aria-label="সেবা অপসারণ করুন"
+                        className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer transition rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1130,55 +848,53 @@ export const ApplicationForm: React.FC = () => {
             </div>
 
             {/* Calculations Breakdown */}
-            <div className="border-t border-gray-200 pt-3 space-y-2 text-xs text-gray-600 mb-4">
+            <div className="border-t border-slate-200 dark:border-slate-800 pt-3 space-y-2 text-xs text-slate-600 dark:text-slate-400 mb-4 font-kalpurush">
               <div className="flex justify-between">
                 <span>মোট সরকারি ফি:</span>
-                <span className="font-medium text-gray-800">
+                <span className="font-medium text-slate-800 dark:text-slate-200 font-anek">
                   {moneyBn(cartLines.reduce((a, b) => a + b.govtFee, 0))} ৳
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>পেমেন্ট গেটওয়ে ফি:</span>
-                <span className="font-medium text-gray-800">
+                <span className="font-medium text-slate-800 dark:text-slate-200 font-anek">
                   {moneyBn(cartLines.reduce((a, b) => a + (b.gatewayFee || 0), 0))} ৳
                 </span>
               </div>
               {cartLines.some((b) => (b.postalFee || 0) > 0) && (
                 <div className="flex justify-between">
                   <span>সরকারি ডাক মাশুল:</span>
-                  <span className="font-medium text-gray-800">
+                  <span className="font-medium text-slate-800 dark:text-slate-200 font-anek">
                     {moneyBn(cartLines.reduce((a, b) => a + (b.postalFee || 0), 0))} ৳
                   </span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span>কেন্দ্র সেবা মাশুল:</span>
-                <span className="font-medium text-[#37A448]">
-                  {moneyBn(cartLines.reduce((a, b) => a + b.centerFee, 0))} ৳
+                <span className="font-bold text-[#37A448] font-anek">
+                  {moneyBn(cartCenterTotal)} ৳
                 </span>
               </div>
-              <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-base text-[#902A8B]">
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-2 flex justify-between font-bold text-base text-[#902A8B] dark:text-purple-300 font-anek">
                 <span>সর্বমোট প্রদেয়:</span>
-                <span className="font-anek">{moneyBn(cartTotal)} ৳</span>
+                <span>{moneyBn(cartTotal)} ৳</span>
               </div>
             </div>
 
             {/* Payment & Received Amount */}
-            <div className="bg-purple-50/80 p-3.5 rounded-xl border-2 border-purple-200 mb-4 space-y-3">
+            <div className="bg-purple-50/70 dark:bg-purple-950/30 p-3.5 rounded-xl border border-purple-200 dark:border-purple-800/80 mb-4 space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5 gap-2">
-                  <label htmlFor="input-app-custom-paid-amount" className="text-xs font-bold text-gray-800 whitespace-nowrap">
+                  <label htmlFor="input-app-custom-paid-amount" className="text-xs font-bold text-slate-800 dark:text-slate-200 font-anek">
                     ভূমি মালিক কর্তৃক পরিশোধিত টাকা (৳):
                   </label>
                   {customPaidAmount !== "" && (
                     <button
                       type="button"
                       onClick={() => setCustomPaidAmount("")}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 hover:bg-[#EC2324] text-[#EC2324] hover:text-white border border-[#EC2324] rounded-md text-[11px] font-bold font-anek shadow-xs transition-all duration-150 cursor-pointer active:scale-95 shrink-0"
-                      title="পূর্বে ধার্যকৃত সর্বমোট পূর্ণ টাকা ফিরিয়ে আনুন"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 rounded-md text-[10px] font-bold font-anek cursor-pointer"
                     >
-                      <RotateCcw className="w-3 h-3 shrink-0" />
-                      <span>পূর্ণ টাকা রিসেট</span>
+                      <RotateCcw className="w-3 h-3" /> পূর্ণ টাকা রিসেট
                     </button>
                   )}
                 </div>
@@ -1191,62 +907,64 @@ export const ApplicationForm: React.FC = () => {
                     placeholder={`সর্বমোট প্রদেয়: ${cartTotal > 0 ? cartTotal : 0} ৳`}
                     value={customPaidAmount}
                     onChange={(e) => setCustomPaidAmount(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm font-bold text-gray-900 border-2 border-purple-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B] focus:border-[#902A8B]"
+                    className="w-full px-3.5 py-2 text-sm font-bold text-slate-900 dark:text-white border border-purple-300 dark:border-purple-700 rounded-xl bg-white dark:bg-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-[#902A8B]"
                   />
-                  <span className="absolute right-3 text-xs font-bold text-gray-500 pointer-events-none">
+                  <span className="absolute right-3 text-xs font-bold text-slate-400 pointer-events-none">
                     ৳
                   </span>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">
-                  * ভূমি মালিক কম টাকা দিলে এখানে টাকার অঙ্ক লিখুন (যেমন: ৫৩০ এর স্থলে ৫০০)।
-                </p>
               </div>
 
               {remainingGap > 0 && (
-                <div className="pt-2.5 border-t border-purple-200 text-xs space-y-2">
-                  <div className="flex justify-between items-center bg-amber-50 border border-amber-200 p-2 rounded-lg text-amber-900 font-semibold text-xs">
+                <div className="pt-2 border-t border-purple-200 dark:border-purple-800/60 text-xs space-y-2 font-kalpurush">
+                  <div className="flex justify-between items-center bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-2 rounded-lg text-amber-900 dark:text-amber-200 font-semibold text-xs">
                     <span>কম প্রদানকৃত অবশিষ্ট টাকা:</span>
                     <span className="font-bold text-sm font-anek">{moneyBn(remainingGap)} ৳</span>
                   </div>
 
                   {govtAdvanceAtRisk && (
-                    <div className="flex items-start gap-2 bg-red-50 border border-[#EC2324] p-2.5 rounded-lg text-red-800 text-[11px] leading-snug">
+                    <div className="flex items-start gap-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 p-2.5 rounded-lg text-rose-800 dark:text-rose-300 text-[11px] leading-snug">
                       <span className="text-sm shrink-0">⚠️</span>
                       <span>
-                        <strong>সতর্কবার্তা:</strong> এই {remainingMode === "waived" ? "মাফের" : "বকেয়ার"} পরিমাণ মোট কেন্দ্র-ফি
-                        ({moneyBn(cartCenterTotal)} ৳)-এর চেয়ে বেশি — অর্থাৎ সরকারি ফি, ডাক ফি ও গেটওয়ে ফি
-                        (মোট {moneyBn(cartNonCenterTotal)} ৳) এখনো সম্পূর্ণ আদায় হয়নি। সরকারি অগ্রিম মেটাতে কেন্দ্রকে
-                        নিজের টাকা থেকে দিতে হতে পারে।
+                        <strong>সতর্কবার্তা:</strong> এই {remainingMode === "waived" ? "মওকুফের" : "বকেয়ার"} পরিমাণ মোট কেন্দ্র-ফি
+                        ({moneyBn(cartCenterTotal)} ৳)-এর চেয়ে বেশি — অর্থাৎ সরকারি ফি ও ডাক মাশুল
+                        (মোট {moneyBn(cartNonCenterTotal)} ৳) এখনও সম্পূর্ণ ওঠেনি।
                       </span>
                     </div>
                   )}
 
                   <div className="space-y-1.5 pt-1">
-                    <span className="text-[11px] font-bold text-gray-700 block">অবশিষ্ট টাকার ধরণ ও রসিদ স্ট্যাটাস:</span>
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block font-anek">
+                      অবশিষ্ট টাকার ধরণ:
+                    </span>
                     <div className="grid grid-cols-2 gap-2">
-                      <label className={`flex flex-col gap-0.5 p-2 rounded-lg border text-xs cursor-pointer transition ${
-                        remainingMode === "due"
-                          ? "bg-amber-50/80 border-[#EC2324] text-red-900 font-bold ring-1 ring-[#EC2324]"
-                          : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
-                      }`}>
+                      <label
+                        className={`flex flex-col gap-0.5 p-2 rounded-xl border text-xs cursor-pointer transition ${
+                          remainingMode === "due"
+                            ? "bg-amber-50/80 border-amber-300 dark:bg-amber-950/40 dark:border-amber-700 font-bold"
+                            : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                        }`}
+                      >
                         <div className="flex items-center gap-1.5">
                           <input
                             type="radio"
                             name="remainingMode"
                             checked={remainingMode === "due"}
                             onChange={() => setRemainingMode("due")}
-                            className="text-[#EC2324] cursor-pointer"
+                            className="text-[#902A8B] cursor-pointer"
                           />
                           <span className="font-bold">বাকি (Due)</span>
                         </div>
-                        <span className="text-[10px] text-red-600 font-normal ml-5">➔ সাময়িক রসিদ (Temporary)</span>
+                        <span className="text-[10px] text-rose-600 font-normal ml-5">➔ সাময়িক রসিদ</span>
                       </label>
 
-                      <label className={`flex flex-col gap-0.5 p-2 rounded-lg border text-xs cursor-pointer transition ${
-                        remainingMode === "waived"
-                          ? "bg-emerald-50/80 border-[#37A448] text-green-900 font-bold ring-1 ring-[#37A448]"
-                          : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
-                      }`}>
+                      <label
+                        className={`flex flex-col gap-0.5 p-2 rounded-xl border text-xs cursor-pointer transition ${
+                          remainingMode === "waived"
+                            ? "bg-emerald-50/80 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-700 font-bold"
+                            : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                        }`}
+                      >
                         <div className="flex items-center gap-1.5">
                           <input
                             type="radio"
@@ -1255,28 +973,26 @@ export const ApplicationForm: React.FC = () => {
                             onChange={() => setRemainingMode("waived")}
                             className="text-[#37A448] cursor-pointer"
                           />
-                          <span className="font-bold">ছাড় / মওকুফ</span>
+                          <span className="font-bold">মওকুফ (Waived)</span>
                         </div>
-                        <span className="text-[10px] text-green-700 font-normal ml-5">➔ পেইড রসিদ (Paid)</span>
+                        <span className="text-[10px] text-[#37A448] font-normal ml-5">➔ পূর্ণ পেইড রসিদ</span>
                       </label>
                     </div>
                   </div>
-
-                  <p className="text-[10px] text-gray-600 bg-white/80 p-2 rounded border border-purple-100 leading-snug">
-                    🛡️ <strong>কাউন্টার প্রটেকশন নীতি:</strong> রসিদে কোনো বকেয়া অংক উল্লেখ থাকবে না—কেবল পরিশোধিত টাকার পরিমাণ ({moneyBn(numericPaid)} ৳) এবং অবস্থা অনুযায়ী <strong>{remainingMode === "due" ? "সাময়িক রসিদ" : "সম্পূর্ণ পরিশোধিত"}</strong> স্ট্যাম্প মুদ্রিত হবে।
-                  </p>
                 </div>
               )}
             </div>
 
-            {/* Payment Method Selector */}
+            {/* Payment Method Selector (F-6) */}
             <div className="mb-4">
-              <label htmlFor="select-app-payment-method" className="block text-xs font-medium text-gray-700 mb-1">পরিশোধের মাধ্যম</label>
+              <label htmlFor="select-app-payment-method" className="block text-xs font-bold text-slate-700 dark:text-slate-300 font-anek mb-1">
+                পরিশোধের মাধ্যম
+              </label>
               <select
                 id="select-app-payment-method"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-[#902A8B]"
+                className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-kalpurush focus:outline-none focus:ring-2 focus:ring-[#902A8B]"
               >
                 {PAYMENT_METHODS.map((pm) => (
                   <option key={pm.id} value={pm.id}>
@@ -1286,29 +1002,87 @@ export const ApplicationForm: React.FC = () => {
               </select>
             </div>
 
-            {/* Generate Button */}
-            <button
-              id="btn-submit-generate-invoice"
-              type="button"
-              disabled={cartLines.length === 0}
-              onClick={handleCreateInvoice}
-              className={`w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md transition ${
-                cartLines.length === 0
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-[#37A448] hover:bg-[#2e8a3d] text-white"
-              }`}
-            >
-              <Printer className="w-4 h-4" /> ইনভয়েস তৈরি ও প্রিন্ট করুন
-            </button>
+            {/* Generate & Print Invoice Button (F-5: Ctrl+Enter) */}
+            <div className="space-y-1.5">
+              <button
+                id="btn-submit-generate-invoice"
+                type="button"
+                disabled={cartLines.length === 0}
+                onClick={handleCreateInvoice}
+                title={cartLines.length === 0 ? "কার্টে অন্তত একটি সেবা যুক্ত করুন" : "ইনভয়েস তৈরি ও প্রিন্ট করুন (Ctrl+Enter)"}
+                className={`w-full py-3 rounded-xl font-bold text-xs sm:text-sm font-anek flex items-center justify-center gap-2 shadow-sm transition transform active:scale-98 ${
+                  cartLines.length === 0
+                    ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
+                    : "bg-[#37A448] hover:bg-[#2d873a] text-white cursor-pointer hover:shadow"
+                }`}
+              >
+                <Printer className="w-4 h-4" />
+                <span>ইনভয়েস তৈরি ও রসিদ প্রিন্ট করুন</span>
+                <kbd className="hidden sm:inline-block text-[10px] px-1.5 py-0.5 bg-black/20 text-white rounded font-mono font-bold ml-1">
+                  Ctrl+Enter
+                </kbd>
+              </button>
+
+              {cartLines.length === 0 && (
+                <p className="text-[10px] text-slate-400 text-center font-kalpurush">
+                  * ইনভয়েস তৈরি করতে বাম পাশ থেকে অন্তত একটি সেবা কার্টে যোগ করুন
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* At-Risk Advance Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={atRiskConfirmOpen}
+        title="বকেয়া ও সরকারি ফি ঝুঁকি সতর্কতা"
+        message={
+          <div className="space-y-2 font-kalpurush">
+            <p className="font-semibold text-rose-700">
+              পরিশোধিত টাকার অঙ্ক মোট সরকারি ও অন্যান্য ফির ({moneyBn(cartNonCenterTotal)} ৳) চেয়ে কম!
+            </p>
+            <p>
+              ভূমি মালিকের কাছ থেকে নেওয়া টাকা সরকারি ফি কভার করছে না। কেন্দ্রকে নিজস্ব তহবিল থেকে অবশিষ্ট সরকারি ফি অগ্রিম প্রদান করতে হবে।
+            </p>
+            <p className="text-xs text-slate-500">
+              আপনি কি নিশ্চিতভাবে এই ইনভয়েসটি তৈরি ও বকেয়া হিসেবে সংরক্ষণ করতে চান?
+            </p>
+          </div>
+        }
+        confirmLabel="হ্যাঁ, ইনভয়েস তৈরি করুন"
+        cancelLabel="ফিরে যান ও সংশোধন করুন"
+        variant="warning"
+        onConfirm={() => {
+          setAtRiskConfirmOpen(false);
+          executeInvoiceGeneration();
+        }}
+        onCancel={() => setAtRiskConfirmOpen(false)}
+      />
+
+      {/* Invoice Success Post-Action Modal (F-3) */}
+      <InvoiceSuccessModal
+        invoice={isSuccessModalOpen ? createdInvoice : null}
+        onClose={() => setIsSuccessModalOpen(false)}
+        onPrintPreview={() => {
+          setIsSuccessModalOpen(false);
+          setIsInvoicePrintOpen(true);
+        }}
+        onNewInvoice={() => {
+          setIsSuccessModalOpen(false);
+          setCreatedInvoice(null);
+          document.getElementById("input-customer-mobile")?.focus();
+        }}
+      />
+
       {/* Invoice Print & Vector PDF Modal */}
-      {createdInvoice && (
+      {isInvoicePrintOpen && createdInvoice && (
         <InvoicePrint
           invoice={createdInvoice}
-          onClose={() => setCreatedInvoice(null)}
+          onClose={() => {
+            setIsInvoicePrintOpen(false);
+            setCreatedInvoice(null);
+          }}
           settings={printSettings}
         />
       )}

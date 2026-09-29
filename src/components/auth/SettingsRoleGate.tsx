@@ -60,9 +60,9 @@ export const SettingsRoleGate: React.FC<SettingsRoleGateProps> = ({ children }) 
         </button>
       </div>
 
-      <div className="mt-8 pt-4 border-t border-gray-100 flex items-center justify-center gap-2 text-xs text-gray-400">
+      <div className="mt-8 pt-4 border-t border-gray-100 flex items-center justify-center gap-2 text-xs text-gray-500">
         <ShieldAlert className="w-3.5 h-3.5 text-emerald-600" />
-        <span>লোকাল রোল-বেসড এক্সেস কন্ট্রোল (RBAC Gate) সক্রিয়</span>
+        <span>অনুমোদিত ইন-চার্জ ব্যতীত এই সেটিংসে প্রবেশ নিষিদ্ধ</span>
       </div>
 
       {showLoginModal && (

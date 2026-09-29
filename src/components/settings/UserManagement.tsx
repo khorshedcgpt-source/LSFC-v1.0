@@ -15,6 +15,8 @@ import {
   UserRole,
   LocalUser,
 } from "../../utils/authStore";
+import { useToast } from "../common/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 const ROLE_LABELS: Record<UserRole, { label: string; badgeColor: string }> = {
   admin: {
@@ -33,8 +35,10 @@ const ROLE_LABELS: Record<UserRole, { label: string; badgeColor: string }> = {
 
 export const UserManagement: React.FC = () => {
   const { currentUser } = useAuth();
+  const { showToast } = useToast();
   const [users, setUsers] = useState<LocalUser[]>(readUsers);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [toggleConfirmUser, setToggleConfirmUser] = useState<LocalUser | null>(null);
 
   // New user form state
   const [username, setUsername] = useState("");
@@ -70,6 +74,7 @@ export const UserManagement: React.FC = () => {
       }
 
       setSuccessMessage(`ব্যবহারকারী "${res.user.displayName}" সফলভাবে যুক্ত করা হয়েছে।`);
+      showToast(`ব্যবহারকারী "${res.user.displayName}" সফলভাবে যুক্ত হয়েছে।`, "success");
       setUsername("");
       setDisplayName("");
       setPassword("");
@@ -87,15 +92,11 @@ export const UserManagement: React.FC = () => {
 
   const handleToggleActive = (user: LocalUser) => {
     if (user.id === currentUser?.id) {
-      alert("আপনি নিজের অ্যাকাউন্ট নিষ্ক্রিয় করতে পারবেন না।");
+      showToast("আপনি নিজের অ্যাকাউন্ট নিষ্ক্রিয় করতে পারবেন না।", "warning");
       return;
     }
 
-    const actionText = user.isActive ? "নিষ্ক্রিয়" : "সক্রিয়";
-    if (confirm(`আপনি কি "${user.displayName}" ব্যবহারকারীকে ${actionText} করতে চান?`)) {
-      setUserActive(user.id, !user.isActive);
-      refreshList();
-    }
+    setToggleConfirmUser(user);
   };
 
   return (
@@ -301,6 +302,29 @@ export const UserManagement: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(toggleConfirmUser)}
+        onCancel={() => setToggleConfirmUser(null)}
+        onConfirm={() => {
+          if (toggleConfirmUser) {
+            setUserActive(toggleConfirmUser.id, !toggleConfirmUser.isActive);
+            showToast(
+              `"${toggleConfirmUser.displayName}" অ্যাকাউন্ট ${toggleConfirmUser.isActive ? "নিষ্ক্রিয়" : "সক্রিয়"} করা হয়েছে।`,
+              "success"
+            );
+            refreshList();
+            setToggleConfirmUser(null);
+          }
+        }}
+        title="ব্যবহারকারীর অবস্থা পরিবর্তন"
+        message={`আপনি কি নিশ্চিত যে "${toggleConfirmUser?.displayName}" ব্যবহারকারীকে ${
+          toggleConfirmUser?.isActive ? "নিষ্ক্রিয়" : "সক্রিয়"
+        } করতে চান?`}
+        confirmLabel={`হ্যাঁ, ${toggleConfirmUser?.isActive ? "নিষ্ক্রিয়" : "সক্রিয়"} করুন`}
+        cancelLabel="বাতিল"
+        variant={toggleConfirmUser?.isActive ? "danger" : "primary"}
+      />
     </div>
   );
 };

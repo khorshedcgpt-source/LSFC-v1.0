@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { X, Lock, User, Shield, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Lock, User, Shield, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import {
   hasAnyUsers,
   createUser,
   verifyLogin,
   UserRole,
 } from "../../utils/authStore";
+import { Modal } from "../common/Modal";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -27,10 +28,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   // Form states
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isCapsLockOn, setIsCapsLockOn] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<UserRole>("branch_incharge");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleKeyActivity = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.getModifierState) {
+      setIsCapsLockOn(e.getModifierState("CapsLock"));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -87,35 +96,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 font-kalpurush">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-purple-100 animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="bg-[#902A8B] px-6 py-4 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-base font-anek leading-tight">
-                {title || (isFirstRun ? "প্রাথমিক অ্যাডমিন সেটআপ" : "ইউজার লগইন")}
-              </h3>
-              <p className="text-[11px] text-purple-200">
-                {isFirstRun
-                  ? "সিস্টেমের প্রথম ইন-চার্জ অ্যাকাউন্ট তৈরি করুন"
-                  : "আপনার অ্যাকাউন্টে সাইন-ইন করুন"}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <form onSubmit={handleLogin} className="p-6 space-y-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title || (isFirstRun ? "প্রাথমিক অ্যাডমিন সেটআপ" : "ইউজার লগইন")}
+      subtitle={
+        isFirstRun
+          ? "সিস্টেমের প্রথম ইন-চার্জ অ্যাকাউন্ট তৈরি করুন"
+          : "আপনার অ্যাকাউন্টে সাইন-ইন করুন"
+      }
+      icon={<Shield className="w-5 h-5 text-white" />}
+      maxWidth="md"
+    >
+      <form onSubmit={handleLogin} className="space-y-4">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-xs font-medium">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
@@ -185,6 +178,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </div>
           </div>
 
+          {isCapsLockOn && (
+            <div className="px-2.5 py-1 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-[11px] font-bold">
+              ⚠️ Caps Lock সক্রিয় রয়েছে
+            </div>
+          )}
+
           <div>
             <label htmlFor="input-login-password" className="block text-xs font-bold text-gray-700 mb-1">
               পাসওয়ার্ড
@@ -193,13 +192,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
               <input
                 id="input-login-password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyUp={handleKeyActivity}
+                onKeyDown={handleKeyActivity}
                 placeholder="অন্তত ৮ অক্ষর, একটি সংখ্যা সহ"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#902A8B] focus:border-transparent outline-none"
+                className="w-full pl-9 pr-9 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#902A8B] focus:border-transparent outline-none font-mono"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখান"}
+                className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 cursor-pointer p-0.5"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -220,7 +229,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };

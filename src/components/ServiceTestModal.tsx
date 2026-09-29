@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from "react";
 import {
-  X,
   Calculator,
   CheckCircle2,
   Layers,
@@ -18,6 +17,7 @@ import {
 import { useInstitutionSettings, ServiceSettingItem } from "../utils/institutionSettings";
 import { moneyBn } from "./InvoicePrint";
 import { toBanglaNumber } from "../utils/bengaliNumbers";
+import { Modal } from "./common/Modal";
 
 export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { settings } = useInstitutionSettings();
@@ -155,38 +155,27 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
   }, [calculation.serviceName, calculation.subText]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-gray-200 overflow-hidden text-xs my-auto animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]">
-        {/* Modal Header */}
-        <div className="bg-gradient-to-r from-[#902A8B] to-[#731f6f] text-white px-5 py-4 flex items-center justify-between shrink-0 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-white/15 rounded-xl border border-white/20">
-              <Calculator className="w-5 h-5 text-[#FFF200]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base font-anek leading-tight">ভূমিসেবা ফি পরীক্ষক ও ক্যালকুলেটর</h3>
-                <span className="bg-emerald-500/30 text-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-400/40">
-                  {toBanglaNumber(activeServices.length)}টি সেবা সক্রিয়
-                </span>
-              </div>
-              <p className="text-[11px] text-purple-200 font-kalpurush mt-0.5">
-                সকল সেবার সরকারি ফি, ডাক মাশুল, গেটওয়ে এবং কেন্দ্র সেবা ফি যাচাই করুন
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-white/20 rounded-xl text-white transition cursor-pointer"
-            title="বন্ধ করুন"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={
+        <div className="flex items-center gap-2">
+          <span>ভূমিসেবা ফি পরীক্ষক ও ক্যালকুলেটর</span>
+          <span className="bg-emerald-500/30 text-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-400/40">
+            {toBanglaNumber(activeServices.length)}টি সেবা সক্রিয়
+          </span>
         </div>
-
-        {/* Modal Scrollable Body */}
-        <div className="p-5 space-y-5 overflow-y-auto font-kalpurush text-slate-800">
-          {/* ১. সেবা নির্বাচন (Service Selector Dropdown & Quick Badges) */}
+      }
+      subtitle="সকল সেবার সরকারি ফি, ডাক মাশুল, গেটওয়ে এবং কেন্দ্র সেবা ফি যাচাই করুন"
+      icon={
+        <div className="p-1.5 bg-white/15 rounded-xl border border-white/20">
+          <Calculator className="w-5 h-5 text-[#FFF200]" />
+        </div>
+      }
+      maxWidth="2xl"
+    >
+      <div className="space-y-5 text-slate-800">
+        {/* ১. সেবা নির্বাচন (Service Selector Dropdown & Quick Badges) */}
           <div>
             <label htmlFor="select-calculator-service" className="block text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
               <Layers className="w-4 h-4 text-[#902A8B]" />
@@ -513,7 +502,7 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
         </div>
 
         {/* Modal Footer */}
-        <div className="bg-slate-50 border-t border-gray-200 px-5 py-3.5 flex items-center justify-between shrink-0">
+        <div className="bg-slate-50 -mx-5 -mb-5 mt-5 border-t border-gray-200 px-5 py-3.5 flex items-center justify-between shrink-0">
           <p className="text-[11px] text-gray-500 hidden sm:block">
             * এই হিসাবটি সরাসরি সেন্টারের নির্ধারিত রুলস ও সেটিংস থেকে গণনাকৃত
           </p>
@@ -526,7 +515,6 @@ export const ServiceTestModal: React.FC<{ onClose: () => void }> = ({ onClose })
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

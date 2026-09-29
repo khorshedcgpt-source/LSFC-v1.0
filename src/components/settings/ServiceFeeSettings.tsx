@@ -9,6 +9,8 @@ import {
   SubServiceItem,
 } from "../../utils/institutionSettings";
 import { buildSubServiceCombinationKey, buildDefaultCombinationLabel } from "../../utils/serviceCalculator";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import { useToast } from "../common/Toast";
 
 // সরকার-নির্ধারিত/বিশেষ-সূত্র সেবার এই চারটা ফিল্ডে প্রথমবার পরিবর্তনের আগে নিশ্চিতকরণ চাওয়া হয়
 const CONFIRM_GUARDED_FIELDS: (keyof ServiceSettingItem)[] = ["govtFee", "gatewayFee", "postalFee", "centerFee"];
@@ -29,11 +31,27 @@ function getAllNonEmptySubsets(items: SubServiceItem[]): SubServiceItem[][] {
 
 export const ServiceFeeSettings: React.FC = () => {
   const { settings, saveSettings } = useInstitutionSettings();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<{ services: ServiceSettingItem[] }>({
     services: settings.services,
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [confirmedFields, setConfirmedFields] = useState<Set<string>>(new Set());
+
+  // Reusable confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: React.ReactNode;
+    confirmLabel?: string;
+    variant?: "danger" | "warning" | "primary";
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     if (settings.services && settings.services.length > 0) {
@@ -42,22 +60,26 @@ export const ServiceFeeSettings: React.FC = () => {
   }, [settings.services]);
 
   const handleRestoreDefaultServices = () => {
-    if (
-      !window.confirm(
-        "আপনি কি প্রমিত ৭টি সেবার তালিকা এবং তাদের সরকারি ও কেন্দ্র ফি ডিফল্ট অনুযায়ী রিস্টোর করতে চান?"
-      )
-    ) {
-      return;
-    }
-    const latest = readInstitutionSettings();
-    const merged: InstitutionSettings = {
-      ...latest,
-      services: DEFAULT_INSTITUTION_SETTINGS.services,
-    };
-    setFormData({ services: DEFAULT_INSTITUTION_SETTINGS.services });
-    saveSettings(merged);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    setConfirmDialog({
+      isOpen: true,
+      title: "ডিফল্ট সেবা তালিকা পুনরুদ্ধার",
+      message: "আপনি কি প্রমিত ৭টি সেবার তালিকা এবং তাদের সরকারি ও কেন্দ্র ফি ডিফল্ট অনুযায়ী রিস্টোর করতে চান?",
+      confirmLabel: "হ্যাঁ, রিস্টোর করুন",
+      variant: "warning",
+      onConfirm: () => {
+        const latest = readInstitutionSettings();
+        const merged: InstitutionSettings = {
+          ...latest,
+          services: DEFAULT_INSTITUTION_SETTINGS.services,
+        };
+        setFormData({ services: DEFAULT_INSTITUTION_SETTINGS.services });
+        saveSettings(merged);
+        showToast("ডিফল্ট সেবা তালিকা সফলভাবে পুনরুদ্ধার করা হয়েছে।", "success");
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   const handleServiceChange = (id: string, field: keyof ServiceSettingItem, value: any) => {
@@ -74,11 +96,19 @@ export const ServiceFeeSettings: React.FC = () => {
   ) => {
     const key = `${service.id}:${field}`;
     if (service.builtInType && CONFIRM_GUARDED_FIELDS.includes(field) && !confirmedFields.has(key)) {
-      const ok = window.confirm(
-        "এটি একটি সরকার-নির্ধারিত/বিশেষ-সূত্র সেবার তথ্য। পরিবর্তন করলে ভবিষ্যতের সব ইনভয়েসে নতুন মান ব্যবহৃত হবে। আপনি কি নিশ্চিতভাবে পরিবর্তন করতে চান?"
-      );
-      if (!ok) return;
-      setConfirmedFields((prev) => new Set(prev).add(key));
+      setConfirmDialog({
+        isOpen: true,
+        title: "বিশেষ সেবার তথ্য পরিবর্তন নিশ্চিতকরণ",
+        message: "এটি একটি সরকার-নির্ধারিত/বিশেষ-সূত্র সেবার তথ্য। পরিবর্তন করলে ভবিষ্যতের সব ইনভয়েসে নতুন মান ব্যবহৃত হবে। আপনি কি নিশ্চিতভাবে পরিবর্তন করতে চান?",
+        confirmLabel: "হ্যাঁ, পরিবর্তন করুন",
+        variant: "warning",
+        onConfirm: () => {
+          setConfirmedFields((prev) => new Set(prev).add(key));
+          handleServiceChange(service.id, field, value);
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+      return;
     }
     handleServiceChange(service.id, field, value);
   };
@@ -100,12 +130,22 @@ export const ServiceFeeSettings: React.FC = () => {
     setFormData((prev) => ({ ...prev, services: [...prev.services, newService] }));
   };
 
-  const handleDeleteService = (id: string) => {
-    if (!confirm("এই সেবাটি মুছে ফেলতে চান?")) return;
-    setFormData((prev) => ({
-      ...prev,
-      services: prev.services.filter((s) => s.id !== id),
-    }));
+  const handleDeleteService = (id: string, serviceName?: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "সেবা মুছে ফেলা নিশ্চিতকরণ",
+      message: `আপনি কি "${serviceName || "এই সেবাটি"}" তালিকা থেকে মুছে ফেলতে চান?`,
+      confirmLabel: "হ্যাঁ, মুছে ফেলুন",
+      variant: "danger",
+      onConfirm: () => {
+        setFormData((prev) => ({
+          ...prev,
+          services: prev.services.filter((s) => s.id !== id),
+        }));
+        showToast("সেবাটি মুছে ফেলা হয়েছে।", "success");
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   const handleAddSubtitle = (serviceId: string) => {
@@ -224,6 +264,7 @@ export const ServiceFeeSettings: React.FC = () => {
     const latest = readInstitutionSettings();
     const merged: InstitutionSettings = { ...latest, services: formData.services };
     saveSettings(merged);
+    showToast("সেবা ও ফি সংক্রান্ত তথ্য সফলভাবে সংরক্ষিত হয়েছে।", "success");
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -637,7 +678,7 @@ export const ServiceFeeSettings: React.FC = () => {
                     </label>
                     <button
                       type="button"
-                      onClick={() => handleDeleteService(service.id)}
+                      onClick={() => handleDeleteService(service.id, service.serviceName)}
                       className="text-red-500 hover:text-red-700 flex items-center gap-1 text-[11px] cursor-pointer justify-self-end"
                     >
                       <Trash2 className="w-3.5 h-3.5" /> মুছে ফেলুন
@@ -653,6 +694,16 @@ export const ServiceFeeSettings: React.FC = () => {
           </div>
         </div>
       </form>
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

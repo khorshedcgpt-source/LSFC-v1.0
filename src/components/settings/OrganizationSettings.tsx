@@ -17,9 +17,11 @@ import {
   readInstitutionSettings,
   InstitutionSettings,
 } from "../../utils/institutionSettings";
+import { useToast } from "../common/Toast";
 
 export const OrganizationSettings: React.FC = () => {
   const { settings, saveSettings } = useInstitutionSettings();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<InstitutionSettings>(settings);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -36,7 +38,7 @@ export const OrganizationSettings: React.FC = () => {
   ) => {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      alert("ফাইলের আকার ২ মেগাবাইট (2MB)-এর চেয়ে কম হতে হবে।");
+      showToast("ফাইলের আকার ২ মেগাবাইট (2MB)-এর চেয়ে কম হতে হবে।", "warning");
       return;
     }
     const reader = new FileReader();
@@ -96,6 +98,7 @@ export const OrganizationSettings: React.FC = () => {
       displayOptions: formData.displayOptions,
     };
     saveSettings(merged);
+    showToast("প্রতিষ্ঠানের তথ্য সফলভাবে সংরক্ষিত হয়েছে।", "success");
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };

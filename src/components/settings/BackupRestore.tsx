@@ -17,18 +17,45 @@ import {
   institutionSettingsPartialSchema,
 } from "../../utils/backupSchema";
 import { getLocalDateString } from "../../utils/dateUtils";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import { useToast } from "../common/Toast";
 
 export const BackupRestore: React.FC = () => {
   const { settings, saveSettings } = useInstitutionSettings();
+  const { showToast } = useToast();
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Reusable confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: React.ReactNode;
+    confirmLabel?: string;
+    variant?: "danger" | "warning" | "primary";
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
   const handleResetDefaults = () => {
-    if (confirm("আপনি কি নিশ্চিত যে সকল প্রাতিষ্ঠানিক তথ্য (সেবা ও ফি সহ) ডিফল্ট মানে রিসেট করতে চান?")) {
-      saveSettings(DEFAULT_INSTITUTION_SETTINGS);
-      setBackupMessage("সকল সেটিংস ডিফল্ট মানে রিসেট করা হয়েছে।");
-      setTimeout(() => setBackupMessage(null), 4000);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: "সেটিংস ডিফল্ট মানে রিসেট",
+      message: "আপনি কি নিশ্চিত যে সকল প্রাতিষ্ঠানিক তথ্য (সেবা ও ফি সহ) ডিফল্ট মানে রিসেট করতে চান?",
+      confirmLabel: "হ্যাঁ, রিসেট করুন",
+      variant: "danger",
+      onConfirm: () => {
+        saveSettings(DEFAULT_INSTITUTION_SETTINGS);
+        showToast("সকল সেটিংস ডিফল্ট মানে রিসেট করা হয়েছে।", "success");
+        setBackupMessage("সকল সেটিংস ডিফল্ট মানে রিসেট করা হয়েছে।");
+        setTimeout(() => setBackupMessage(null), 4000);
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   /** Shared download helper */
@@ -109,7 +136,7 @@ export const BackupRestore: React.FC = () => {
         try {
           parsed = JSON.parse(rawContent);
         } catch {
-          alert("ব্যাকআপ ফাইলটি সঠিক JSON ফরম্যাটে নেই। অনুগ্রহ করে বৈধ ব্যাকআপ ফাইল নির্বাচন করুন।");
+          showToast("ব্যাকআপ ফাইলটি সঠিক JSON ফরম্যাটে নেই। অনুগ্রহ করে বৈধ ব্যাকআপ ফাইল নির্বাচন করুন।", "error");
           return;
         }
 
@@ -121,7 +148,7 @@ export const BackupRestore: React.FC = () => {
               .slice(0, 3)
               .map((i) => `${i.path.join(" ➔ ")}: ${i.message}`)
               .join("; ");
-            alert(`ব্যাকআপ ফাইলের স্কিমা ভ্যালিডেশনে ত্রুটি পাওয়া গেছে: ${errorDetails}`);
+            showToast(`ব্যাকআপ ফাইলের স্কিমা ভ্যালিডেশনে ত্রুটি পাওয়া গেছে: ${errorDetails}`, "error");
             return;
           }
 
@@ -141,64 +168,80 @@ export const BackupRestore: React.FC = () => {
           const currentExpenses = readExpenses().length;
 
           // Security warning: notify admin that users are NOT restored from backup
-          const userWarningLine =
-            realCounts.users > 0
-              ? `\n🔒 নিরাপত্তা সতর্কতা: ব্যাকআপ ফাইলের ব্যবহারকারী তথ্য রিস্টোর করা হবে না। নিরাপত্তা নিশ্চিত করতে বিদ্যমান ইউজার অ্যাকাউন্ট অপরিবর্তিত থাকবে; প্রয়োজনীয় কর্মী অ্যাকাউন্ট ইউজার ম্যানেজমেন্ট থেকে পুনরায় তৈরি করতে হবে।\n`
-              : "";
+          const hasUsersInBackup = realCounts.users > 0;
 
-          const confirmMsg =
-            `⚠️ সতর্কতা: রিস্টোর করলে বর্তমান সব ডেটা প্রতিস্থাপিত হবে!\n\n` +
-            `📦 ব্যাকআপ ফাইলে প্রাপ্ত প্রকৃত রেকর্ড:\n` +
-            `  • ইনভয়েস: ${realCounts.invoices}টি\n` +
-            `  • ভূমি মালিক: ${realCounts.customers}জন\n` +
-            `  • খরচ: ${realCounts.expenses}টি\n\n` +
-            `💾 বর্তমানে সিস্টেমে আছে:\n` +
-            `  • ইনভয়েস: ${currentInvoices}টি\n` +
-            `  • ভূমি মালিক: ${currentCustomers}জন\n` +
-            `  • খরচ: ${currentExpenses}টি\n` +
-            `  • ইউজার: ${currentUsers}জন\n` +
-            `${userWarningLine}\n` +
-            `নিরাপত্তার জন্য রিস্টোরের আগে বর্তমান অবস্থার একটি auto-backup ডাউনলোড হয়ে যাবে।\n\n` +
-            `আপনি কি নিশ্চিতভাবে রিস্টোর করতে চান?`;
+          setConfirmDialog({
+            isOpen: true,
+            title: "ব্যাকআপ ডেটা রিস্টোর নিশ্চিতকরণ",
+            variant: "danger",
+            confirmLabel: "হ্যাঁ, ডেটা রিস্টোর করুন",
+            message: (
+              <div className="space-y-3 text-xs">
+                <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 font-semibold">
+                  ⚠️ সতর্কতা: রিস্টোর করলে বর্তমান ডেটা প্রতিস্থাপিত হবে!
+                </div>
+                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-lg border border-gray-200">
+                  <div>
+                    <span className="font-bold text-gray-700 block mb-1">📦 ব্যাকআপ ফাইলে:</span>
+                    <p>• ইনভয়েস: {realCounts.invoices}টি</p>
+                    <p>• ভূমি মালিক: {realCounts.customers}জন</p>
+                    <p>• খরচ: {realCounts.expenses}টি</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-gray-700 block mb-1">💾 বর্তমান সিস্টেমে:</span>
+                    <p>• ইনভয়েস: {currentInvoices}টি</p>
+                    <p>• ভূমি মালিক: {currentCustomers}জন</p>
+                    <p>• খরচ: {currentExpenses}টি</p>
+                    <p>• ইউজার: {currentUsers}জন</p>
+                  </div>
+                </div>
+                {hasUsersInBackup && (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-md border border-amber-200">
+                    🔒 নিরাপত্তা সতর্কতা: নিরাপত্তার স্বার্থে কর্মী অ্যাকাউন্ট অপরিবর্তিত থাকবে।
+                  </p>
+                )}
+                <p className="text-[11px] text-gray-500">
+                  * নিরাপত্তার জন্য রিস্টোরের আগে বর্তমান অবস্থার একটি অটো-ব্যাকআপ ডাউনলোড হবে।
+                </p>
+              </div>
+            ),
+            onConfirm: () => {
+              setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+              // Safety net: auto-backup current state before overwriting
+              autoBackupBeforeRestore();
 
-          if (!window.confirm(confirmMsg)) {
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            return;
-          }
+              // Restore strictly validated data WITHOUT any 'as any' casting
+              if (data.institutionSettings) {
+                saveSettings({
+                  ...DEFAULT_INSTITUTION_SETTINGS,
+                  ...data.institutionSettings,
+                });
+              }
+              if (data.invoices) {
+                writeInvoices(data.invoices);
+              }
+              if (data.customers) {
+                writeCustomers(data.customers);
+              }
+              if (data.expenses) {
+                writeExpenses(data.expenses);
+              }
 
-          // Safety net: auto-backup current state before overwriting
-          autoBackupBeforeRestore();
+              const userNoticeText = hasUsersInBackup
+                ? " (নিরাপত্তার স্বার্থে ইউজার অ্যাকাউন্ট রিস্টোর করা হয়নি, বিদ্যমান অ্যাকাউন্ট বহাল রয়েছে)"
+                : "";
 
-          // Restore strictly validated data WITHOUT any 'as any' casting
-          if (data.institutionSettings) {
-            saveSettings({
-              ...DEFAULT_INSTITUTION_SETTINGS,
-              ...data.institutionSettings,
-            });
-          }
-          if (data.invoices) {
-            writeInvoices(data.invoices);
-          }
-          if (data.customers) {
-            writeCustomers(data.customers);
-          }
-          if (data.expenses) {
-            writeExpenses(data.expenses);
-          }
+              showToast("ব্যাকআপ সফলভাবে রিস্টোর সম্পন্ন হয়েছে।", "success");
+              setBackupMessage(
+                `সফলভাবে রিস্টোর সম্পন্ন হয়েছে (${realCounts.invoices}টি ইনভয়েস, ${realCounts.customers} জন ভূমি মালিক, ${realCounts.expenses}টি খরচ রেকর্ড)${userNoticeText}।`
+              );
 
-          const userNoticeText =
-            realCounts.users > 0
-              ? " (নিরাপত্তার স্বার্থে ইউজার অ্যাকাউন্ট রিস্টোর করা হয়নি, বিদ্যমান অ্যাকাউন্ট বহাল রয়েছে)"
-              : "";
-
-          setBackupMessage(
-            `সফলভাবে রিস্টোর সম্পন্ন হয়েছে (${realCounts.invoices}টি ইনভয়েস, ${realCounts.customers} জন ভূমি মালিক, ${realCounts.expenses}টি খরচ রেকর্ড)${userNoticeText}।`
-          );
-
-          // রিস্টোরের পর ডিক্রিপশন ও মেমরি ক্যাশ নতুন স্টার্টআপের মতো ফ্রেশ করার জন্য স্বয়ংক্রিয় রিলোড
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
+              // রিস্টোরের পর ডিক্রিপশন ও মেমরি ক্যাশ নতুন স্টার্টআপের মতো ফ্রেশ করার জন্য স্বয়ংক্রিয় রিলোড
+              setTimeout(() => {
+                window.location.reload();
+              }, 1500);
+            },
+          });
         }
         // ---------- 2. Legacy settings-only format ----------
         else if (parsed && typeof parsed === "object" && "orgNameBn" in parsed) {
@@ -208,37 +251,40 @@ export const BackupRestore: React.FC = () => {
               .slice(0, 3)
               .map((i) => i.message)
               .join("; ");
-            alert(`পুরনো সেটিংস ফাইলের স্কিমা ভ্যালিডেশনে ত্রুটি: ${errorDetails}`);
+            showToast(`পুরনো সেটিংস ফাইলের স্কিমা ভ্যালিডেশনে ত্রুটি: ${errorDetails}`, "error");
             return;
           }
 
-          const ok = window.confirm(
-            "এটি একটি পুরনো সেটিংস-শুধু ব্যাকআপ ফাইল। শুধু প্রতিষ্ঠান সেটিংস রিস্টোর হবে (ইনভয়েস/ভূমি মালিক/খরচ অপরিবর্তিত থাকবে)। চালিয়ে যাবেন?"
-          );
-          if (!ok) {
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            return;
-          }
+          setConfirmDialog({
+            isOpen: true,
+            title: "পুরনো সেটিংস রিস্টোর নিশ্চিতকরণ",
+            variant: "warning",
+            confirmLabel: "হ্যাঁ, সেটিংস রিস্টোর করুন",
+            message: "এটি একটি পুরনো সেটিংস-শুধু ব্যাকআপ ফাইল। শুধু প্রতিষ্ঠান সেটিংস রিস্টোর হবে (ইনভয়েস/ভূমি মালিক/খরচ অপরিবর্তিত থাকবে)। চালিয়ে যাবেন?",
+            onConfirm: () => {
+              setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+              saveSettings({
+                ...DEFAULT_INSTITUTION_SETTINGS,
+                ...settingsResult.data,
+              });
+              showToast("সেটিংস সফলভাবে রিস্টোর হয়েছে।", "success");
+              setBackupMessage("সেটিংস সফলভাবে রিস্টোর হয়েছে।");
 
-          saveSettings({
-            ...DEFAULT_INSTITUTION_SETTINGS,
-            ...settingsResult.data,
+              // প্রাতিষ্ঠানিক সেটিংসের পরিবর্তনসমূহ সিস্টেমে রেন্ডার করার জন্য রিলোড
+              setTimeout(() => {
+                window.location.reload();
+              }, 1500);
+            },
           });
-          setBackupMessage("সেটিংস সফলভাবে রিস্টোর হয়েছে।");
-
-          // প্রাতিষ্ঠানিক সেটিংসের পরিবর্তনসমূহ সিস্টেমে রেন্ডার করার জন্য রিলোড
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
         } else {
-          alert("ব্যাকআপ ফাইলের গঠন সঠিক নয় (অবৈধ JSON বা অপরিচিত ফরম্যাট)।");
+          showToast("ব্যাকআপ ফাইলের গঠন সঠিক নয় (অবৈধ JSON বা অপরিচিত ফরম্যাট)।", "error");
           return;
         }
 
         setTimeout(() => setBackupMessage(null), 6000);
       } catch (err) {
         console.error("Backup restore error:", err);
-        alert("ব্যাকআপ ফাইলটি প্রক্রিয়াকরণে ত্রুটি ঘটেছে। অনুগ্রহ করে সঠিক JSON ফাইল নির্বাচন করুন।");
+        showToast("ব্যাকআপ ফাইলটি প্রক্রিয়াকরণে ত্রুটি ঘটেছে। অনুগ্রহ করে সঠিক JSON ফাইল নির্বাচন করুন।", "error");
       }
     };
     reader.readAsText(file);
@@ -301,6 +347,19 @@ export const BackupRestore: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => {
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        }}
+      />
     </div>
   );
 };
